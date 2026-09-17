@@ -47,9 +47,48 @@ async function loadPatients(query = '') {
   updateHeaderStats();
 }
 
-// Expose globals for sync.js and external triggers
+function handleSearchInput(val) {
+  const clearBtnDesktop = document.getElementById('btn-clear-search-desktop');
+  const clearBtnMobile = document.getElementById('btn-clear-search-mobile');
+  const hasVal = !!(val && val.trim());
+
+  if (clearBtnDesktop) {
+    clearBtnDesktop.classList.toggle('hidden', !hasVal);
+    clearBtnDesktop.classList.toggle('flex', hasVal);
+  }
+  if (clearBtnMobile) {
+    clearBtnMobile.classList.toggle('hidden', !hasVal);
+    clearBtnMobile.classList.toggle('flex', hasVal);
+  }
+
+  // Sync inputs across desktop and mobile
+  const desktopInput = document.getElementById('global-search-input');
+  const mobileInput = document.getElementById('mobile-search-input');
+  if (desktopInput && desktopInput.value !== val) desktopInput.value = val;
+  if (mobileInput && mobileInput.value !== val) mobileInput.value = val;
+
+  loadPatients(val);
+}
+
+function clearSearch() {
+  const desktopInput = document.getElementById('global-search-input');
+  const mobileInput = document.getElementById('mobile-search-input');
+  if (desktopInput) desktopInput.value = '';
+  if (mobileInput) mobileInput.value = '';
+
+  const clearBtnDesktop = document.getElementById('btn-clear-search-desktop');
+  const clearBtnMobile = document.getElementById('btn-clear-search-mobile');
+  if (clearBtnDesktop) { clearBtnDesktop.classList.add('hidden'); clearBtnDesktop.classList.remove('flex'); }
+  if (clearBtnMobile) { clearBtnMobile.classList.add('hidden'); clearBtnMobile.classList.remove('flex'); }
+
+  loadPatients('');
+}
+
+// Expose globals for sync.js and HTML listeners
 window.state = state;
 window.loadPatients = loadPatients;
+window.handleSearchInput = handleSearchInput;
+window.clearSearch = clearSearch;
 window.renderPatientsList = renderPatientsList;
 window.renderCurrentTab = renderCurrentTab;
 window.renderPatientHeader = renderPatientHeader;
@@ -79,32 +118,43 @@ function renderPatientsList() {
 
   container.innerHTML = state.patients.map(p => {
     const isSelected = state.currentPatient && state.currentPatient.id === p.id;
+    const hasPhone = !!(p.phone && p.phone.trim() && p.phone !== 'بدون هاتف' && p.phone !== 'غير مسجل');
     return `
       <div onclick="selectPatient('${p.id}')" 
-           class="p-4 rounded-2xl cursor-pointer transition-all duration-200 border text-right ${
+           class="p-3.5 sm:p-4 rounded-2xl cursor-pointer transition-all duration-200 border text-right ${
              isSelected 
                ? 'bg-gradient-to-r from-teal-50/90 to-emerald-50/80 border-teal-500 shadow-md ring-2 ring-teal-500/20' 
                : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-teal-300 shadow-sm'
            }">
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-1.5">
           <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 flex items-center gap-1">
             <span class="text-[10px] text-teal-600">كود:</span> ${p.code || '---'}
           </span>
-          <span class="text-xs text-slate-400 font-medium">${formatDate(p.updatedAt || p.createdAt)}</span>
+          <div class="flex items-center gap-1">
+            ${hasPhone ? `
+              <a href="tel:${escapeHtml(p.phone)}" onclick="event.stopPropagation()" title="اتصال بالهاتف" class="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all">
+                <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+              </a>
+            ` : ''}
+            <button onclick="event.stopPropagation(); selectPatient('${p.id}'); openUploadModal();" title="تصوير شيت سريع" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-all">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </button>
+            <span class="text-[11px] text-slate-400 font-medium mr-1">${formatDate(p.updatedAt || p.createdAt)}</span>
+          </div>
         </div>
-        <h4 class="font-bold text-slate-800 text-base mb-1 flex items-center gap-1.5">
-          <i data-lucide="user" class="w-4 h-4 text-teal-600"></i>
-          ${escapeHtml(p.name)}
+        <h4 class="font-bold text-slate-800 text-sm sm:text-base mb-1 flex items-center gap-1.5">
+          <i data-lucide="user" class="w-4 h-4 text-teal-600 shrink-0"></i>
+          <span class="truncate">${escapeHtml(p.name)}</span>
         </h4>
-        <div class="text-xs text-slate-500 flex flex-wrap items-center gap-3 mt-2">
-          <span class="flex items-center gap-1"><i data-lucide="phone" class="w-3.5 h-3.5 text-slate-400"></i> ${escapeHtml(p.phone || 'بدون هاتف')}</span>
-          <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i> ${p.age ? p.age + ' سنة' : ''}</span>
-          <span class="flex items-center gap-1"><i data-lucide="activity" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sex || ''}</span>
+        <div class="text-xs text-slate-500 flex flex-wrap items-center gap-2.5 mt-1.5">
+          <span class="flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3 text-slate-400"></i> ${escapeHtml(p.phone || 'بدون هاتف')}</span>
+          <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i> ${p.age ? p.age + ' سنة' : ''}</span>
+          <span class="flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3 text-slate-400"></i> ${p.sex || ''}</span>
         </div>
         ${p.diagnosis ? `
-          <div class="mt-2 pt-2 border-t border-slate-100 text-xs text-teal-700 font-medium truncate flex items-center gap-1">
-            <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-600 shrink-0"></i>
-            ${escapeHtml(p.diagnosis)}
+          <div class="mt-2 pt-1.5 border-t border-slate-100 text-xs text-teal-700 font-medium truncate flex items-center gap-1">
+            <i data-lucide="stethoscope" class="w-3 h-3 text-teal-600 shrink-0"></i>
+            <span class="truncate">${escapeHtml(p.diagnosis)}</span>
           </div>
         ` : ''}
       </div>
@@ -144,13 +194,35 @@ function renderPatientHeader() {
   const p = state.currentPatient;
   if (!p) return;
 
-  document.getElementById('p-header-name').textContent = p.name || 'بدون اسم';
-  document.getElementById('p-header-code').textContent = p.code || '---';
-  document.getElementById('p-header-phone').textContent = p.phone || 'غير مسجل';
-  document.getElementById('p-header-age').textContent = p.age ? `${p.age} سنة` : 'غير محدد';
-  document.getElementById('p-header-sex').textContent = p.sex || 'غير محدد';
-  document.getElementById('p-header-address').textContent = p.address || 'العنوان غير مدخل';
-  document.getElementById('p-header-diagnosis').textContent = p.diagnosis || 'لم يحدد تشخيص بعد';
+  const nameEl = document.getElementById('p-header-name');
+  if (nameEl) nameEl.textContent = p.name || 'بدون اسم';
+
+  const codeEl = document.getElementById('p-header-code');
+  if (codeEl) codeEl.textContent = p.code || '---';
+
+  const phoneEl = document.getElementById('p-header-phone');
+  if (phoneEl) phoneEl.textContent = p.phone || 'غير مسجل';
+
+  const phoneLink = document.getElementById('p-header-phone-link');
+  if (phoneLink) {
+    if (p.phone && p.phone.trim() && p.phone !== 'غير مسجل') {
+      phoneLink.href = 'tel:' + p.phone.trim();
+    } else {
+      phoneLink.removeAttribute('href');
+    }
+  }
+
+  const ageEl = document.getElementById('p-header-age');
+  if (ageEl) ageEl.textContent = p.age ? `${p.age} سنة` : 'غير محدد';
+
+  const sexEl = document.getElementById('p-header-sex');
+  if (sexEl) sexEl.textContent = p.sex || 'غير محدد';
+
+  const addrEl = document.getElementById('p-header-address');
+  if (addrEl) addrEl.textContent = p.address || 'العنوان غير مدخل';
+
+  const diagEl = document.getElementById('p-header-diagnosis');
+  if (diagEl) diagEl.textContent = p.diagnosis || 'لم يحدد تشخيص بعد';
 
   const visitsBadge = document.getElementById('p-header-visits-count');
   if (visitsBadge) visitsBadge.textContent = `${state.currentVisits.length} زيارة`;

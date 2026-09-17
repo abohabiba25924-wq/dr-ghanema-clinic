@@ -1,20 +1,20 @@
-﻿/**
+/**
  * sw.js - Service Worker for Dr. Mahmoud Ghanema Clinic PWA
  * Enables 100% offline access, fast loading, and asset caching
  */
 
-const CACHE_NAME = 'ghanema-clinic-v3';
+const CACHE_NAME = 'ghanema-clinic-v6';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.json',
   'assets/doctor_logo.png',
-  'js/db.js?v=5',
-  'js/sync.js?v=5',
-  'js/joint-map.js?v=5',
-  'js/gemini.js?v=5',
-  'js/seed-data.js?v=5',
-  'js/app.js?v=5',
+  'js/db.js?v=6',
+  'js/sync.js?v=6',
+  'js/joint-map.js?v=6',
+  'js/gemini.js?v=6',
+  'js/seed-data.js?v=6',
+  'js/app.js?v=6',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',

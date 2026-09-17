@@ -187,6 +187,9 @@ class JointMapComponent {
            data-id="${j.id}" 
            transform="translate(${j.cx}, ${j.cy})">
           
+          <!-- Invisible generous touch target for mobile finger taps -->
+          <circle r="22" fill="transparent" />
+
           <!-- Outer pulsing glow if affected -->
           ${isAffected ? `
             <circle r="${j.r + 6}" fill="${st.color}" opacity="0.25" class="animate-pulse" />
@@ -197,7 +200,7 @@ class JointMapComponent {
                   fill="${st.fill}" 
                   stroke="${st.stroke}" 
                   stroke-width="${isAffected ? 3 : 2}" 
-                  class="transition-all duration-200 hover:scale-125" />
+                  class="transition-all duration-200 hover:scale-125 pointer-events-none" />
           
           <!-- Center indicator dot -->
           ${isAffected ? `

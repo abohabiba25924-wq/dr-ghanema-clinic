@@ -99,76 +99,91 @@
 <body class="text-slate-800 antialiased min-h-screen flex flex-col">
 
   <!-- TOP CLINIC HEADER -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-20 gap-4">
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      
+      <!-- Top Row: Branding + Desktop Search + Badges & Actions -->
+      <div class="flex items-center justify-between h-16 sm:h-20 gap-3">
         
         <!-- Doctor Branding & Logo -->
-        <div class="flex items-center gap-3">
-          <div class="w-13 h-13 rounded-2xl overflow-hidden shadow-sm border border-teal-100 flex-shrink-0 bg-white p-0.5">
-            <img src="assets/doctor_logo.png" alt="Dr. Mahmoud Ghanema Logo" class="w-12 h-12 object-contain" />
+        <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div class="w-10 h-10 sm:w-13 sm:h-13 rounded-2xl overflow-hidden shadow-sm border border-teal-100 flex-shrink-0 bg-white p-0.5">
+            <img src="assets/doctor_logo.png" alt="Dr. Mahmoud Ghanema Logo" class="w-full h-full object-contain" />
           </div>
           <div class="text-right">
-            <h1 class="text-lg sm:text-xl font-black text-slate-900 leading-tight flex items-center gap-2">
+            <h1 class="text-base sm:text-xl font-black text-slate-900 leading-tight flex items-center gap-1.5">
               <span>عيادة د. محمود غنيمة</span>
-              <span class="text-[11px] font-bold bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full hidden sm:inline-block">روماتيزم ومناعة</span>
+              <span class="text-[10px] sm:text-[11px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full hidden sm:inline-block">روماتيزم ومناعة</span>
             </h1>
-            <p class="text-xs text-teal-700 font-bold hidden md:block">
+            <p class="text-[11px] sm:text-xs text-teal-700 font-bold hidden md:block">
               استشاري ومدرس الروماتيزم والمناعة الإكلينيكية - كلية الطب، جامعة القاهرة
             </p>
           </div>
         </div>
 
-        <!-- Global Search Bar (Code, Name, Phone) -->
-        <div class="flex-1 max-w-md mx-2">
+        <!-- Desktop Global Search Bar (Code, Name, Phone) -->
+        <div class="hidden md:block flex-1 max-w-xl mx-4">
           <div class="relative">
             <input type="text" id="global-search-input" 
+                   oninput="handleSearchInput(this.value)"
                    placeholder="ابحث بالاسم، رقم الهاتف، أو كود المريض (مثال: 594)..." 
-                   class="w-full pl-4 pr-10 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 focus:border-teal-500 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all text-right shadow-inner">
+                   class="w-full pl-9 pr-11 py-2.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-teal-500 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-4 focus:ring-teal-500/10 transition-all text-right shadow-inner">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2"></i>
+            <button id="btn-clear-search-desktop" onclick="clearSearch()" class="hidden absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-xs transition-all">✕</button>
           </div>
         </div>
 
         <!-- Top Actions -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <!-- Real-Time Online / Offline Connectivity Indicator -->
-          <div id="network-status-badge" class="px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-sm">
+          <div id="network-status-badge" class="px-2 sm:px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-sm">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span class="text-[11px] font-bold text-emerald-800 hidden sm:inline">أونلاين</span>
           </div>
 
           <!-- Real-Time Cloud Sync Badge (Supabase) -->
-          <div id="cloud-sync-badge" onclick="if(window.clinicSync) window.clinicSync.syncAll()" title="حالة المزامنة السحابية اللحظية (اضغط للمزامنة اليدوية)" class="cursor-pointer px-2.5 py-1 bg-teal-50 border border-teal-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all hover:bg-teal-100">
+          <div id="cloud-sync-badge" onclick="if(window.clinicSync) window.clinicSync.syncAll()" title="حالة المزامنة السحابية اللحظية (اضغط للمزامنة اليدوية)" class="cursor-pointer px-2 sm:px-2.5 py-1 bg-teal-50 border border-teal-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all hover:bg-teal-100">
             <span class="w-2 h-2 rounded-full bg-teal-500"></span>
             <span id="cloud-sync-text" class="text-[11px] font-bold text-teal-800 hidden sm:inline">سحابي متزامن</span>
           </div>
 
-          <!-- PWA Native Install Button (Shown on supported devices via sync.js) -->
+          <!-- PWA Native Install Button (Desktop/Supported) -->
           <button id="btn-pwa-install" onclick="triggerPWAInstall()" title="تثبيت التطبيق على جهازك للعمل أوفلاين كـ App" class="hidden items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-sm text-xs font-bold">
             <i data-lucide="download" class="w-4 h-4"></i>
             <span class="hidden md:inline">تثبيت التطبيق</span>
           </button>
 
           <!-- Mobile Connect QR Button (Desktop) -->
-          <button onclick="openMobileConnectModal()" title="فتح السيستم على الموبايل عبر QR Code" class="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-xl transition-all border border-teal-200 text-xs font-bold">
+          <button onclick="openMobileConnectModal()" title="فتح السيستم على الموبايل عبر QR Code" class="hidden lg:flex items-center gap-1.5 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-xl transition-all border border-teal-200 text-xs font-bold">
             <i data-lucide="smartphone" class="w-4 h-4 text-teal-600"></i>
             <span>ربط الموبايل (QR)</span>
           </button>
 
-          <!-- Primary Upload & AI Button -->
-          <button onclick="openUploadModal()" class="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl shadow-md hover:shadow-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+          <!-- Primary Upload & AI Button (Desktop) -->
+          <button onclick="openUploadModal()" class="hidden sm:flex px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl shadow-md hover:shadow-lg text-xs sm:text-sm font-bold items-center gap-2 transition-all">
             <i data-lucide="camera" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">تصوير ورفع شيت (AI)</span>
-            <span class="sm:hidden">رفع شيت</span>
+            <span>رفع شيت (AI)</span>
           </button>
 
           <!-- Settings Button -->
-          <button onclick="openSettingsModal()" title="إعدادات النظام ومفتاح الذكاء الاصطناعي" class="p-2.5 text-slate-600 hover:text-teal-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200">
+          <button onclick="openSettingsModal()" title="إعدادات النظام ومفتاح الذكاء الاصطناعي" class="p-2 sm:p-2.5 text-slate-600 hover:text-teal-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200">
             <i data-lucide="settings" class="w-4 h-4"></i>
           </button>
         </div>
 
       </div>
+
+      <!-- Mobile Dedicated Search Row (Full-width, tall & comfortable for thumbs) -->
+      <div class="md:hidden pb-3 pt-0">
+        <div class="relative">
+          <input type="text" id="mobile-search-input" 
+                 oninput="handleSearchInput(this.value)"
+                 placeholder="🔍 ابحث بالاسم، الكود (مثل 594)، أو الهاتف..." 
+                 class="w-full pl-9 pr-4 py-2.5 bg-slate-100 focus:bg-white border border-slate-200 focus:border-teal-500 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-teal-500/15 transition-all text-right shadow-inner">
+          <button id="btn-clear-search-mobile" onclick="clearSearch()" class="hidden absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-xs transition-all">✕</button>
+        </div>
+      </div>
+
     </div>
   </header>
 
@@ -217,79 +232,81 @@
         <!-- Active Patient View -->
         <div id="patient-profile-view" class="space-y-5">
           
-          <!-- PATIENT HERO HEADER BANNER -->
-          <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/50 relative overflow-hidden">
-            <!-- Background Glow -->
-            <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+          <!-- PATIENT HERO HEADER BANNER (Light Modern Medical Card) -->
+          <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200 relative overflow-hidden text-right">
             <!-- Mobile Back Button -->
             <div class="lg:hidden mb-3">
-              <button onclick="showMobileView('patients')" class="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all">
-                <i data-lucide="arrow-right" class="w-4 h-4"></i> العودة لقائمة المرضى
+              <button onclick="showMobileView('patients')" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all">
+                <i data-lucide="arrow-right" class="w-4 h-4 text-teal-600"></i> العودة لقائمة المرضى
               </button>
             </div>
 
-            <div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="px-3 py-1 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-full text-xs font-black tracking-wider flex items-center gap-1">
-                    كود: <b id="p-header-code">---</b>
+                  <span class="px-3 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-xs font-black tracking-wider flex items-center gap-1">
+                    كود: <b id="p-header-code" class="text-teal-800">---</b>
                   </span>
-                  <span id="p-header-visits-count" class="px-2.5 py-1 bg-white/10 text-slate-200 rounded-full text-xs font-bold">
+                  <span id="p-header-visits-count" class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">
                     0 زيارة
                   </span>
                 </div>
-                <h2 id="p-header-name" class="text-2xl sm:text-3xl font-black text-white mb-2 tracking-tight">
+                <h2 id="p-header-name" class="text-2xl sm:text-3xl font-black text-slate-900 mb-2.5 tracking-tight">
                   ---
                 </h2>
-                <div class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
-                  <span class="flex items-center gap-1.5"><i data-lucide="phone" class="w-4 h-4 text-teal-400"></i> <span id="p-header-phone">---</span></span>
-                  <span class="flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-teal-400"></i> <span id="p-header-age">---</span></span>
-                  <span class="flex items-center gap-1.5"><i data-lucide="user" class="w-4 h-4 text-teal-400"></i> <span id="p-header-sex">---</span></span>
-                  <span class="flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4 text-teal-400"></i> <span id="p-header-address">---</span></span>
+                <div class="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-medium text-slate-600">
+                  <span class="flex items-center gap-1.5"><i data-lucide="phone" class="w-4 h-4 text-teal-600"></i> <a id="p-header-phone-link" href="#" class="hover:underline text-teal-700 font-bold"><span id="p-header-phone">---</span></a></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-teal-600"></i> <span id="p-header-age">---</span></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="user" class="w-4 h-4 text-teal-600"></i> <span id="p-header-sex">---</span></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4 text-teal-600"></i> <span id="p-header-address">---</span></span>
                 </div>
               </div>
 
               <!-- Top Actions on Patient -->
               <div class="flex items-center gap-2">
-                <button onclick="openUploadModal()" class="px-3 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow transition-all">
-                  <i data-lucide="plus-circle" class="w-4 h-4"></i> شيت جديد للمريض
+                <button onclick="openUploadModal()" class="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                  <i data-lucide="camera" class="w-4 h-4"></i> شيت جديد (AI)
                 </button>
-                <button onclick="deleteCurrentPatient()" title="حذف المريض" class="p-2 bg-white/10 hover:bg-rose-600/80 text-white rounded-xl text-xs transition-all">
+                <button onclick="openNewVisitModal()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all">
+                  <i data-lucide="plus" class="w-4 h-4"></i> كشف جديد
+                </button>
+                <button onclick="deleteCurrentPatient()" title="حذف المريض" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl text-xs transition-all border border-slate-200">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
               </div>
             </div>
 
             <!-- Diagnosis Banner -->
-            <div class="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 text-xs">
-              <span class="text-teal-400 font-bold flex items-center gap-1"><i data-lucide="stethoscope" class="w-4 h-4"></i> التشخيص:</span>
-              <span id="p-header-diagnosis" class="font-bold text-white bg-white/10 px-3 py-1 rounded-lg">---</span>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs">
+              <span class="text-teal-700 font-bold flex items-center gap-1 shrink-0"><i data-lucide="stethoscope" class="w-4 h-4"></i> التشخيص:</span>
+              <span id="p-header-diagnosis" class="font-bold text-teal-900 bg-teal-50 border border-teal-200 px-3 py-1 rounded-lg truncate">---</span>
             </div>
           </div>
 
-          <!-- TABS NAVIGATION BAR -->
-          <div class="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <button onclick="switchTab('timeline')" data-tab="timeline" class="patient-tab-btn active px-4 py-2.5 rounded-xl font-bold text-sm bg-teal-600 text-white shadow-sm flex items-center gap-2 transition-all">
-              <i data-lucide="clock" class="w-4 h-4"></i>
-              <span>شريط الزيارات</span>
-            </button>
-            <button onclick="switchTab('initial_history')" data-tab="initial_history" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
-              <i data-lucide="file-text" class="w-4 h-4"></i>
-              <span>شيت الكشف الأولي</span>
-            </button>
-            <button onclick="switchTab('joint_map')" data-tab="joint_map" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
-              <i data-lucide="person-standing" class="w-4 h-4"></i>
-              <span>مخطط المفاصل</span>
-            </button>
-            <button onclick="switchTab('labs_tracker')" data-tab="labs_tracker" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
-              <i data-lucide="flask-conical" class="w-4 h-4"></i>
-              <span>تتبع التحاليل (21 تحليل)</span>
-            </button>
-            <button onclick="switchTab('gallery')" data-tab="gallery" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
-              <i data-lucide="images" class="w-4 h-4"></i>
-              <span>الشيتات الأصلية</span>
-            </button>
+          <!-- TABS NAVIGATION BAR (Streamlined labels & smooth scrolling) -->
+          <div class="relative bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+              <button onclick="switchTab('timeline')" data-tab="timeline" class="patient-tab-btn active shrink-0 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-teal-600 text-white shadow-sm flex items-center gap-1.5 transition-all">
+                <i data-lucide="clock" class="w-4 h-4"></i>
+                <span>الزيارات</span>
+              </button>
+              <button onclick="switchTab('initial_history')" data-tab="initial_history" class="patient-tab-btn shrink-0 px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <span>الكشف الأولي</span>
+              </button>
+              <button onclick="switchTab('joint_map')" data-tab="joint_map" class="patient-tab-btn shrink-0 px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="person-standing" class="w-4 h-4"></i>
+                <span>المفاصل (28)</span>
+              </button>
+              <button onclick="switchTab('labs_tracker')" data-tab="labs_tracker" class="patient-tab-btn shrink-0 px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="flask-conical" class="w-4 h-4"></i>
+                <span>التحاليل (21)</span>
+              </button>
+              <button onclick="switchTab('gallery')" data-tab="gallery" class="patient-tab-btn shrink-0 px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-1.5 transition-all">
+                <i data-lucide="images" class="w-4 h-4"></i>
+                <span>الشيتات الأصلية</span>
+              </button>
+            </div>
           </div>
 
           <!-- TAB CONTENT CONTAINER -->
@@ -307,11 +324,13 @@
   <!-- ================= MODALS ================= -->
 
   <!-- 1. UPLOAD & AI EXTRACTION MODAL (SIDE-BY-SIDE REVIEW) -->
-  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
       
       <!-- Modal Header -->
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md">
             <i data-lucide="sparkles" class="w-5 h-5"></i>
@@ -594,8 +613,10 @@
   </div>
 
   <!-- 2. PRINT PRESCRIPTION / REPORT MODAL -->
-  <div id="print-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden text-right">
+  <div id="print-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] overflow-hidden text-right flex flex-col">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
       <!-- Toolbar (Hidden during print) -->
       <div class="no-print p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
         <span class="font-bold text-slate-700 text-sm">معاينة الروشتة / التقرير الطبي للطباعة</span>
@@ -610,16 +631,18 @@
       </div>
 
       <!-- Printable Paper Content (A5/A4 proportions) -->
-      <div id="print-paper-content" class="p-8 bg-white">
+      <div id="print-paper-content" class="p-6 sm:p-8 bg-white overflow-y-auto flex-1">
         <!-- Rendered by app.js -->
       </div>
     </div>
   </div>
 
   <!-- 3. MANUAL NEW PATIENT MODAL -->
-  <div id="new-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden text-right">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+  <div id="new-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 class="font-black text-slate-900 text-base">إضافة مريض جديد يدوياً</h3>
         <button onclick="document.getElementById('new-patient-modal').classList.add('hidden')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -670,9 +693,11 @@
   </div>
 
   <!-- 3.1 EDIT PATIENT FULL MODAL -->
-  <div id="edit-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-right">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+  <div id="edit-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 class="font-black text-slate-900 text-base">تعديل بيانات المريض والشيت الأولي</h3>
         <button onclick="document.getElementById('edit-patient-modal').classList.add('hidden')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -776,9 +801,11 @@
   </div>
 
   <!-- 4. NEW VISIT MANUAL MODAL -->
-  <div id="new-visit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden text-right">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+  <div id="new-visit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 class="font-black text-slate-900 text-base">تسجيل زيارة / متابعة جديدة</h3>
         <button onclick="closeNewVisitModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -828,9 +855,11 @@
   </div>
 
   <!-- 5. SETTINGS & BACKUP MODAL -->
-  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden text-right">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 class="font-black text-slate-900 text-base flex items-center gap-2">
           <i data-lucide="settings" class="w-5 h-5 text-teal-600"></i>
           إعدادات النظام والنسخ الاحتياطي
@@ -909,9 +938,11 @@
   </div>
 
   <!-- 7. MOBILE CONNECT & QR CODE MODAL -->
-  <div id="mobile-connect-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeMobileConnectModal()">
-    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden text-right" onclick="event.stopPropagation()">
-      <div class="p-5 bg-gradient-to-r from-teal-700 to-emerald-700 text-white flex items-center justify-between">
+  <div id="mobile-connect-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="closeMobileConnectModal()">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden text-right" onclick="event.stopPropagation()">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      <div class="p-4 sm:p-5 bg-gradient-to-r from-teal-700 to-emerald-700 text-white flex items-center justify-between">
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="w-5 h-5"></i>
           <h3 class="font-black text-base">تشغيل السيستم على الموبايل والتابلت</h3>
@@ -1039,12 +1070,12 @@
   <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
 
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=5"></script>
-  <script src="js/sync.js?v=5"></script>
-  <script src="js/joint-map.js?v=5"></script>
-  <script src="js/gemini.js?v=5"></script>
-  <script src="js/seed-data.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/db.js?v=6"></script>
+  <script src="js/sync.js?v=6"></script>
+  <script src="js/joint-map.js?v=6"></script>
+  <script src="js/gemini.js?v=6"></script>
+  <script src="js/seed-data.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 
 </body>
 </html>
