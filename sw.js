@@ -3,7 +3,7 @@
  * Enables 100% offline access, fast loading, and asset caching
  */
 
-const CACHE_NAME = 'ghanema-clinic-v1';
+const CACHE_NAME = 'ghanema-clinic-v2';
 const STATIC_ASSETS = [
   './',
   'index.html',
@@ -14,10 +14,11 @@ const STATIC_ASSETS = [
   'js/gemini.js?v=3',
   'js/seed-data.js?v=3',
   'js/app.js?v=3',
-  'js/sync.js?v=1',
+  'js/sync.js?v=4',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap',
   'https://cdn.tailwindcss.com',
-  'https://unpkg.com/lucide@latest'
+  'https://unpkg.com/lucide@latest',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 // Install Event: Pre-cache core shell
@@ -48,8 +49,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Gemini API calls must always bypass cache and go to network
-  if (url.hostname.includes('googleapis.com') && url.pathname.includes('models')) {
+  // Gemini API and Supabase calls must always bypass cache and go directly to network
+  if ((url.hostname.includes('googleapis.com') && url.pathname.includes('models')) || url.hostname.includes('supabase.co')) {
     event.respondWith(fetch(event.request));
     return;
   }

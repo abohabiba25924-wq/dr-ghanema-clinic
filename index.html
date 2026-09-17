@@ -25,6 +25,9 @@
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -132,6 +135,12 @@
           <div id="network-status-badge" class="px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-sm">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span class="text-[11px] font-bold text-emerald-800 hidden sm:inline">أونلاين</span>
+          </div>
+
+          <!-- Real-Time Cloud Sync Badge (Supabase) -->
+          <div id="cloud-sync-badge" onclick="if(window.clinicSync) window.clinicSync.syncAll()" title="حالة المزامنة السحابية اللحظية (اضغط للمزامنة اليدوية)" class="cursor-pointer px-2.5 py-1 bg-teal-50 border border-teal-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all hover:bg-teal-100">
+            <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+            <span id="cloud-sync-text" class="text-[11px] font-bold text-teal-800 hidden sm:inline">سحابي متزامن</span>
           </div>
 
           <!-- PWA Native Install Button (Shown on supported devices via sync.js) -->
@@ -1027,12 +1036,12 @@
   <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
 
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=3"></script>
-  <script src="js/joint-map.js?v=3"></script>
-  <script src="js/gemini.js?v=3"></script>
-  <script src="js/seed-data.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
-  <script src="js/sync.js?v=1"></script>
+  <script src="js/db.js?v=4"></script>
+  <script src="js/sync.js?v=4"></script>
+  <script src="js/joint-map.js?v=4"></script>
+  <script src="js/gemini.js?v=4"></script>
+  <script src="js/seed-data.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 
 </body>
 </html>

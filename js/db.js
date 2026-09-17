@@ -73,20 +73,28 @@ class ClinicDB {
     });
   }
 
-  async savePatient(patient) {
+  async savePatient(patient, sync = true) {
     await this.init();
     patient.updatedAt = new Date().toISOString();
     if (!patient.createdAt) patient.createdAt = patient.updatedAt;
-    return new Promise((resolve, reject) => {
+    
+    await new Promise((resolve, reject) => {
       const tx = this.db.transaction('patients', 'readwrite');
       const store = tx.objectStore('patients');
       const request = store.put(patient);
       request.onsuccess = () => resolve(patient);
       request.onerror = () => reject(request.error);
     });
+
+    // Notify Cloud Sync if enabled
+    if (sync && window.clinicSync && typeof window.clinicSync.pushPatient === 'function') {
+      window.clinicSync.pushPatient(patient).catch(console.warn);
+    }
+
+    return patient;
   }
 
-  async deletePatient(id) {
+  async deletePatient(id, sync = true) {
     await this.init();
     const visits = await this.getVisitsByPatient(id);
     const tx = this.db.transaction(['patients', 'visits'], 'readwrite');
@@ -94,10 +102,17 @@ class ClinicDB {
     const visitStore = tx.objectStore('visits');
     visits.forEach(v => visitStore.delete(v.id));
 
-    return new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => reject(tx.error);
     });
+
+    // Notify Cloud Sync if enabled
+    if (sync && window.clinicSync && typeof window.clinicSync.deletePatient === 'function') {
+      window.clinicSync.deletePatient(id).catch(console.warn);
+    }
+
+    return true;
   }
 
   async getVisitsByPatient(patientId) {
@@ -116,27 +131,42 @@ class ClinicDB {
     });
   }
 
-  async saveVisit(visit) {
+  async saveVisit(visit, sync = true) {
     await this.init();
     visit.updatedAt = new Date().toISOString();
-    return new Promise((resolve, reject) => {
+    
+    await new Promise((resolve, reject) => {
       const tx = this.db.transaction('visits', 'readwrite');
       const store = tx.objectStore('visits');
       const request = store.put(visit);
       request.onsuccess = () => resolve(visit);
       request.onerror = () => reject(request.error);
     });
+
+    // Notify Cloud Sync if enabled
+    if (sync && window.clinicSync && typeof window.clinicSync.pushVisit === 'function') {
+      window.clinicSync.pushVisit(visit).catch(console.warn);
+    }
+
+    return visit;
   }
 
-  async deleteVisit(id) {
+  async deleteVisit(id, sync = true) {
     await this.init();
-    return new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       const tx = this.db.transaction('visits', 'readwrite');
       const store = tx.objectStore('visits');
       const request = store.delete(id);
       request.onsuccess = () => resolve(true);
       request.onerror = () => reject(request.error);
     });
+
+    // Notify Cloud Sync if enabled
+    if (sync && window.clinicSync && typeof window.clinicSync.deleteVisit === 'function') {
+      window.clinicSync.deleteVisit(id).catch(console.warn);
+    }
+
+    return true;
   }
 
   async getSetting(key, defaultValue = null) {
