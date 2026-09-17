@@ -1,0 +1,1667 @@
+/**
+ * app.js - Main Application Logic for Dr. Mahmoud Ghanema Clinic System
+ */
+
+let state = {
+  patients: [],
+  currentPatient: null,
+  currentVisits: [],
+  activeTab: 'timeline',
+  jointMapInstance: null,
+  pendingImages: [], // array of { name, data, mimeType }
+  extractedData: null
+};
+
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await window.clinicDB.init();
+    await window.checkAndSeedInitialData();
+    await loadPatients();
+    setupEventListeners();
+    fetchActiveUrls();
+
+    // Check if there is a patient parameter or select first
+    if (state.patients.length > 0) {
+      if (window.innerWidth >= 1024) {
+        selectPatient(state.patients[0].id);
+      } else {
+        // On mobile, keep directory list as first screen and prepare selection
+        state.currentPatient = state.patients[0];
+        state.currentVisits = await window.clinicDB.getVisitsByPatient(state.patients[0].id);
+        renderPatientHeader();
+        renderCurrentTab();
+        showMobileView('patients');
+      }
+    }
+  } catch (err) {
+    console.error('Initialization error:', err);
+    showToast('حدث خطأ أثناء تحميل البيانات: ' + err.message, 'error');
+  }
+});
+
+// --- Data Loading ---
+async function loadPatients(query = '') {
+  state.patients = await window.clinicDB.searchPatients(query);
+  renderPatientsList();
+  updateHeaderStats();
+}
+
+function updateHeaderStats() {
+  const totalCountEl = document.getElementById('stat-total-patients');
+  if (totalCountEl) totalCountEl.textContent = state.patients.length;
+}
+
+// --- UI Rendering: Patient List / Directory ---
+function renderPatientsList() {
+  const container = document.getElementById('patients-list-container');
+  if (!container) return;
+
+  if (state.patients.length === 0) {
+    container.innerHTML = `
+      <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <i data-lucide="user-x" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p class="font-medium text-slate-600">لا يوجد مرضى مطابقين للبحث</p>
+        <p class="text-xs text-slate-400 mt-1">اضغط على زر "مريض جديد" أو ارفع شيت ورقي لإضافة مريض</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = state.patients.map(p => {
+    const isSelected = state.currentPatient && state.currentPatient.id === p.id;
+    return `
+      <div onclick="selectPatient('${p.id}')" 
+           class="p-4 rounded-2xl cursor-pointer transition-all duration-200 border text-right ${
+             isSelected 
+               ? 'bg-gradient-to-r from-teal-50/90 to-emerald-50/80 border-teal-500 shadow-md ring-2 ring-teal-500/20' 
+               : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-teal-300 shadow-sm'
+           }">
+        <div class="flex items-center justify-between mb-2">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 flex items-center gap-1">
+            <span class="text-[10px] text-teal-600">كود:</span> ${p.code || '---'}
+          </span>
+          <span class="text-xs text-slate-400 font-medium">${formatDate(p.updatedAt || p.createdAt)}</span>
+        </div>
+        <h4 class="font-bold text-slate-800 text-base mb-1 flex items-center gap-1.5">
+          <i data-lucide="user" class="w-4 h-4 text-teal-600"></i>
+          ${escapeHtml(p.name)}
+        </h4>
+        <div class="text-xs text-slate-500 flex flex-wrap items-center gap-3 mt-2">
+          <span class="flex items-center gap-1"><i data-lucide="phone" class="w-3.5 h-3.5 text-slate-400"></i> ${escapeHtml(p.phone || 'بدون هاتف')}</span>
+          <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i> ${p.age ? p.age + ' سنة' : ''}</span>
+          <span class="flex items-center gap-1"><i data-lucide="activity" class="w-3.5 h-3.5 text-slate-400"></i> ${p.sex || ''}</span>
+        </div>
+        ${p.diagnosis ? `
+          <div class="mt-2 pt-2 border-t border-slate-100 text-xs text-teal-700 font-medium truncate flex items-center gap-1">
+            <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-600 shrink-0"></i>
+            ${escapeHtml(p.diagnosis)}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// --- Select Patient & Render Profile ---
+async function selectPatient(patientId) {
+  const patient = await window.clinicDB.getPatient(patientId);
+  if (!patient) return;
+
+  state.currentPatient = patient;
+  state.currentVisits = await window.clinicDB.getVisitsByPatient(patientId);
+
+  // Highlight in sidebar list
+  renderPatientsList();
+
+  // Show profile view container, hide empty placeholder
+  const emptyView = document.getElementById('patient-empty-view');
+  const profileView = document.getElementById('patient-profile-view');
+  if (emptyView) emptyView.classList.add('hidden');
+  if (profileView) profileView.classList.remove('hidden');
+
+  renderPatientHeader();
+  renderCurrentTab();
+
+  // On mobile devices, automatically switch view to the patient profile
+  if (window.innerWidth < 1024) {
+    showMobileView('profile');
+  }
+}
+
+function renderPatientHeader() {
+  const p = state.currentPatient;
+  if (!p) return;
+
+  document.getElementById('p-header-name').textContent = p.name || 'بدون اسم';
+  document.getElementById('p-header-code').textContent = p.code || '---';
+  document.getElementById('p-header-phone').textContent = p.phone || 'غير مسجل';
+  document.getElementById('p-header-age').textContent = p.age ? `${p.age} سنة` : 'غير محدد';
+  document.getElementById('p-header-sex').textContent = p.sex || 'غير محدد';
+  document.getElementById('p-header-address').textContent = p.address || 'العنوان غير مدخل';
+  document.getElementById('p-header-diagnosis').textContent = p.diagnosis || 'لم يحدد تشخيص بعد';
+
+  const visitsBadge = document.getElementById('p-header-visits-count');
+  if (visitsBadge) visitsBadge.textContent = `${state.currentVisits.length} زيارة`;
+}
+
+function switchTab(tabKey) {
+  state.activeTab = tabKey;
+  document.querySelectorAll('.patient-tab-btn').forEach(btn => {
+    const key = btn.getAttribute('data-tab');
+    if (key === tabKey) {
+      btn.className = 'patient-tab-btn active px-4 py-2.5 rounded-xl font-bold text-sm bg-teal-600 text-white shadow-sm flex items-center gap-2 transition-all';
+    } else {
+      btn.className = 'patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all';
+    }
+  });
+
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  const container = document.getElementById('tab-content-area');
+  if (!container || !state.currentPatient) return;
+
+  switch (state.activeTab) {
+    case 'timeline':
+      renderTimelineTab(container);
+      break;
+    case 'initial_history':
+      renderInitialHistoryTab(container);
+      break;
+    case 'joint_map':
+      renderJointMapTab(container);
+      break;
+    case 'labs_tracker':
+      renderLabsTrackerTab(container);
+      break;
+    case 'gallery':
+      renderGalleryTab(container);
+      break;
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// --- Tab 1: Visits Timeline ---
+function renderTimelineTab(container) {
+  if (state.currentVisits.length === 0) {
+    container.innerHTML = `
+      <div class="p-10 text-center text-slate-400 bg-white rounded-2xl border border-slate-100">
+        <i data-lucide="clipboard-list" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+        <h3 class="font-bold text-slate-700 text-base">لا توجد زيارات مسجلة لهذا المريض</h3>
+        <p class="text-sm text-slate-400 mt-1">يمكنك إضافة زيارة جديدة أو رفع وتفريغ الشيت بالذكاء الاصطناعي</p>
+        <button onclick="openNewVisitModal()" class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-xl shadow-sm inline-flex items-center gap-2">
+          <i data-lucide="plus" class="w-4 h-4"></i> تسجيل زيارة جديدة
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+        <i data-lucide="history" class="w-5 h-5 text-teal-600"></i>
+        سجل الزيارات والكشوفات (${state.currentVisits.length})
+      </h3>
+      <button onclick="openNewVisitModal()" class="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-all">
+        <i data-lucide="plus" class="w-4 h-4"></i> إضافة زيارة جديدة
+      </button>
+    </div>
+
+    <div class="relative pl-4 space-y-6 before:absolute before:top-3 before:bottom-3 before:right-5 before:w-0.5 before:bg-teal-100">
+      ${state.currentVisits.map((v, idx) => `
+        <div class="relative pr-11">
+          <!-- Timeline Icon Bubble -->
+          <div class="absolute right-2.5 top-0 -translate-x-1/2 w-6 h-6 rounded-full bg-teal-600 border-4 border-white shadow flex items-center justify-center text-white text-[10px] font-bold">
+            ${state.currentVisits.length - idx}
+          </div>
+
+          <!-- Visit Card -->
+          <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-3 py-1 bg-teal-100 text-teal-800 text-xs font-bold rounded-full">
+                  ${v.type || 'كشف / متابعة'}
+                </span>
+                ${v.isPendingAI ? `
+                  <span class="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[10px] font-black flex items-center gap-1 animate-pulse">
+                    <i data-lucide="clock" class="w-3 h-3 text-amber-700"></i> محفوظ محلياً (بانتظار النت)
+                  </span>
+                ` : ''}
+                <span class="text-sm font-bold text-slate-700 flex items-center gap-1">
+                  <i data-lucide="calendar" class="w-4 h-4 text-teal-600"></i> ${formatDate(v.date)}
+                </span>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                ${v.images && v.images.length > 0 ? `
+                  <button onclick="runAILaterForVisit('${v.id}')" class="px-3 py-1 text-xs font-bold text-amber-900 hover:text-white bg-amber-100 hover:bg-amber-600 border border-amber-300 rounded-xl inline-flex items-center gap-1.5 transition-all shadow-sm">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-700"></i> تفريغ الشيت بالذكاء الاصطناعي (متوفر نت)
+                  </button>
+                ` : ''}
+                <button onclick="printVisitReport('${v.id}')" class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-teal-700 hover:bg-teal-50 border border-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-all">
+                  <i data-lucide="printer" class="w-3.5 h-3.5 text-teal-600"></i> طباعة روشتة / تقرير
+                </button>
+                <button onclick="deleteVisitConfirm('${v.id}')" class="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Vitals Grid -->
+            ${v.vitals ? `
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 p-2.5 bg-slate-50/80 rounded-xl mb-4 text-xs">
+                <div><span class="text-slate-400">الضغط:</span> <b class="text-slate-800">${v.vitals.bp || '---'}</b></div>
+                <div><span class="text-slate-400">الوزن:</span> <b class="text-slate-800">${v.vitals.weight ? v.vitals.weight + ' كجم' : '---'}</b></div>
+                <div><span class="text-slate-400">الطول:</span> <b class="text-slate-800">${v.vitals.height ? v.vitals.height + ' سم' : '---'}</b></div>
+                <div><span class="text-slate-400">النبض:</span> <b class="text-slate-800">${v.vitals.pulse || '---'}</b></div>
+                <div><span class="text-slate-400">الحرارة:</span> <b class="text-slate-800">${v.vitals.temp ? v.vitals.temp + ' °C' : '---'}</b></div>
+              </div>
+            ` : ''}
+
+            <!-- Visit Details -->
+            <div class="space-y-3 text-sm">
+              ${v.history ? `
+                <div>
+                  <h5 class="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5 text-teal-600"></i> الشكوى وتطور الأعراض (History):
+                  </h5>
+                  <p class="text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-100 whitespace-pre-line leading-relaxed font-sans">${escapeHtml(v.history)}</p>
+                </div>
+              ` : ''}
+
+              ${v.examNotes ? `
+                <div>
+                  <h5 class="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3.5 h-3.5 text-teal-600"></i> الفحص الإكلينيكي والمفاصل (Examination):
+                  </h5>
+                  <p class="text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-100 whitespace-pre-line leading-relaxed">${escapeHtml(v.examNotes)}</p>
+                </div>
+              ` : ''}
+
+              ${v.treatment ? `
+                <div>
+                  <h5 class="text-xs font-bold text-teal-800 mb-1 flex items-center gap-1">
+                    <i data-lucide="pill" class="w-3.5 h-3.5 text-teal-600"></i> العلاج والأدوية الموصوفة (Treatment - TTT):
+                  </h5>
+                  <div class="bg-emerald-50/60 text-emerald-950 border border-emerald-200/70 p-3 rounded-xl whitespace-pre-line font-medium leading-relaxed">
+                    ${escapeHtml(v.treatment)}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${v.plan ? `
+                <div>
+                  <h5 class="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                    <i data-lucide="compass" class="w-3.5 h-3.5 text-teal-600"></i> الخطة والتحاليل المطلوبة (Plan):
+                  </h5>
+                  <p class="text-slate-700 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">${escapeHtml(v.plan)}</p>
+                </div>
+              ` : ''}
+
+              <!-- Uploaded Sheet Thumbnails -->
+              ${v.images && v.images.length > 0 ? `
+                <div class="pt-2">
+                  <h5 class="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                    <i data-lucide="image" class="w-3.5 h-3.5 text-teal-600"></i> صور الشيت الورقي لهذه الزيارة (${v.images.length}):
+                  </h5>
+                  <div class="flex flex-wrap gap-2">
+                    ${v.images.map((imgSrc, imgIdx) => `
+                      <div onclick="openLightbox('${imgSrc}')" class="relative group w-20 h-24 rounded-xl border border-slate-200 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-teal-500 transition-all">
+                        <img src="${imgSrc}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                        </div>
+                        <span class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-[9px] text-white rounded font-bold">ص ${imgIdx + 1}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// --- Tab 2: Initial Comprehensive Medical Sheet ---
+function renderInitialHistoryTab(container) {
+  const p = state.currentPatient;
+
+  container.innerHTML = `
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <i data-lucide="file-check-2" class="w-5 h-5 text-teal-600"></i>
+            شيت الزيارة الأولى الشامل (Comprehensive Intake Sheet)
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">البيانات الديموغرافية والنسائية والتاريخ المرضي والجراحي الكامل</p>
+        </div>
+        <button onclick="openEditPatientModal()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl inline-flex items-center gap-1.5 transition-all">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> تعديل البيانات
+        </button>
+      </div>
+
+      <!-- Grid of Demographics & Social -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">المهنة (Occupation):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.occupation || 'غير محدد')}</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">الحالة الاجتماعية والأبناء (Marital & Children):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.marital || '---')} / ${escapeHtml(p.children || 'بدون أبناء')}</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">التدخين (Smoking):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.smoking || 'لا تدخن')}</span>
+        </div>
+
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">التاريخ النسائي (G P L):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.gpl || '---')}</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">الدورة الشهرية (Menses):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.menses || '---')}</span>
+        </div>
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-xs text-slate-400 block mb-1">وسيلة منع الحمل (Contraception):</span>
+          <span class="font-bold text-slate-800">${escapeHtml(p.contraception || 'لا يوجد')}</span>
+        </div>
+      </div>
+
+      <!-- Medical & Surgical History -->
+      <div class="space-y-3 pt-2">
+        <div class="p-4 bg-rose-50/50 rounded-xl border border-rose-100 text-sm">
+          <h4 class="font-bold text-rose-800 text-xs mb-1 flex items-center gap-1.5">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-rose-600"></i> الحساسية الدوائية (Allergy):
+          </h4>
+          <p class="text-slate-800 font-medium">${escapeHtml(p.allergy || 'لا يوجد حساسية معروفة')}</p>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm">
+          <h4 class="font-bold text-slate-700 text-xs mb-1 flex items-center gap-1.5">
+            <i data-lucide="scissors" class="w-4 h-4 text-teal-600"></i> العمليات الجراحية السابقة (Operations):
+          </h4>
+          <p class="text-slate-800">${escapeHtml(p.operations || 'لا يوجد عمليات مسجلة')}</p>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm">
+          <h4 class="font-bold text-slate-700 text-xs mb-1 flex items-center gap-1.5">
+            <i data-lucide="users" class="w-4 h-4 text-teal-600"></i> التاريخ العائلي للأمراض (Family History):
+          </h4>
+          <p class="text-slate-800">${escapeHtml(p.familyHistory || 'لا يوجد أمراض وراثية مسجلة')}</p>
+        </div>
+
+        <div class="p-4 bg-amber-50/50 rounded-xl border border-amber-100 text-sm">
+          <h4 class="font-bold text-amber-800 text-xs mb-1 flex items-center gap-1.5">
+            <i data-lucide="pill" class="w-4 h-4 text-amber-600"></i> العلاج الحالي قبل الزيارة (Current TTT):
+          </h4>
+          <p class="text-slate-800 font-medium">${escapeHtml(p.currentTTT || 'لا يتناول أدوية حالياً')}</p>
+        </div>
+      </div>
+
+      <!-- Main Complaint Narrative -->
+      <div class="pt-2">
+        <h4 class="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
+          <i data-lucide="clipboard-pen" class="w-4 h-4 text-teal-600"></i>
+          الشكوى الرئيسية وتاريخ المرض بالتفصيل (Main Complaint & Review of Systems):
+        </h4>
+        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-slate-800 font-sans text-sm leading-relaxed whitespace-pre-line">
+          ${escapeHtml(p.mainComplaint || 'لم تسجل شكوى مفصلة.')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// --- Tab 3: Interactive Joint Homunculus Map ---
+function renderJointMapTab(container) {
+  const latestVisit = state.currentVisits[0];
+  const initialJoints = latestVisit?.jointStates || {};
+
+  container.innerHTML = `
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-6">
+        <div>
+          <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <i data-lucide="person-standing" class="w-5 h-5 text-teal-600"></i>
+            مخطط المفاصل التفاعلي (Rheumatology Joint Homunculus)
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">تحديد المفاصل الملتهبة والمتورمة والمؤلمة وحساب درجات النشاط الإكلينيكي</p>
+        </div>
+        <button onclick="saveJointMapChanges()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-all">
+          <i data-lucide="save" class="w-4 h-4"></i> حفظ التعديل في أحدث زيارة
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Joint SVG Column -->
+        <div class="lg:col-span-6 flex justify-center">
+          <div id="interactive-joint-container" class="w-full max-w-[420px]"></div>
+        </div>
+
+        <!-- Clinical Joint Notes Column -->
+        <div class="lg:col-span-6 space-y-4">
+          <div class="p-4 bg-teal-50/50 rounded-2xl border border-teal-100">
+            <h4 class="font-bold text-teal-900 text-sm mb-2 flex items-center gap-1.5">
+              <i data-lucide="stethoscope" class="w-4 h-4 text-teal-600"></i> ملاحظات الفحص الإكلينيكي الحالية:
+            </h4>
+            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-line">
+              ${escapeHtml(latestVisit?.examNotes || 'لا توجد ملاحظات إكلينيكية مسجلة في أحدث زيارة.')}
+            </p>
+          </div>
+
+          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-2">
+            <h5 class="font-bold text-slate-700 flex items-center gap-1">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-teal-600"></i> إرشادات الاستخدام السريع:
+            </h5>
+            <ul class="list-disc list-inside space-y-1 text-slate-500">
+              <li>اضغط نقرة أولى على أي مفصل: يتحول للأصفر للدلالة على الألم عند الضغط (Tender Joint).</li>
+              <li>اضغط نقرة ثانية: يتحول للأحمر للدلالة على وجود تورم أو ارتشاح نشط (Swollen Joint).</li>
+              <li>اضغط نقرة ثالثة: يتحول للبنفسجي للدلالة على وجود ألم وتورم معاً.</li>
+              <li>النقرة الرابعة تعيد المفصل لحالته الطبيعية.</li>
+            </ul>
+          </div>
+
+          <!-- Original Joint Drawing Photo Thumbnail if exists -->
+          ${latestVisit?.images?.[1] ? `
+            <div class="p-4 bg-white rounded-2xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-600 block mb-2">رسمة الشيت الأصلي المرفوع (مقارنة بصرية):</span>
+              <div onclick="openLightbox('${latestVisit.images[1]}')" class="h-44 rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:ring-2 hover:ring-teal-500 transition-all">
+                <img src="${latestVisit.images[1]}" class="w-full h-full object-contain bg-slate-50" />
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Instantiate Joint Map Component
+  state.jointMapInstance = new JointMapComponent('interactive-joint-container', {
+    readonly: false,
+    onChange: (states) => {
+      // States changed
+    }
+  });
+  state.jointMapInstance.setStates(initialJoints);
+}
+
+async function saveJointMapChanges() {
+  if (!state.jointMapInstance || state.currentVisits.length === 0) {
+    showToast('لا توجد زيارة حالية لحفظ التغييرات بها', 'warning');
+    return;
+  }
+  const latestVisit = state.currentVisits[0];
+  latestVisit.jointStates = state.jointMapInstance.getStates();
+  await window.clinicDB.saveVisit(latestVisit);
+  showToast('تم حفظ حالة المفاصل بنجاح في أحدث كشف', 'success');
+}
+
+// --- Tab 4: Longitudinal Labs Evolution Tracker ---
+function renderLabsTrackerTab(container) {
+  // Collect all visits with labs
+  const labVisits = state.currentVisits.filter(v => v.labs && Object.keys(v.labs).length > 0);
+
+  const LAB_PARAMS = [
+    { key: 'alt', label: 'ALT (GPT)', normal: 'أقل من 35 U/L' },
+    { key: 'ast', label: 'AST (GOT)', normal: 'أقل من 35 U/L' },
+    { key: 'creatinine', label: 'Creatinine', normal: '0.6 - 1.2 mg/dL' },
+    { key: 'uric_acid', label: 'Uric Acid', normal: '3.5 - 7.2 mg/dL' },
+    { key: 'esr', label: 'ESR (سرعة الترسيب)', normal: 'أقل من 20 mm/hr' },
+    { key: 'crp', label: 'CRP', normal: 'أقل من 6 mg/L' },
+    { key: 'hb', label: 'Hemoglobin (HB)', normal: '12 - 15.5 g/dL' },
+    { key: 'plt', label: 'Platelets (PLT)', normal: '150,000 - 450,000' },
+    { key: 'tlc', label: 'TLC (كرات الدم البيضاء)', normal: '4,000 - 11,000' },
+    { key: 'mcv', label: 'MCV', normal: '80 - 100 fL' },
+    { key: 'ca', label: 'Total Calcium (Ca)', normal: '8.5 - 10.5 mg/dL' },
+    { key: 'ldl', label: 'LDL / Lipid / INR', normal: 'طبيعي' },
+    { key: 'tsh', label: 'TSH', normal: '0.4 - 4.0 mIU/L' },
+    { key: 'hba1c', label: 'HbA1c (السكر التراكمي)', normal: 'أقل من 5.7%' },
+    { key: 'vit_d', label: 'Vitamin D', normal: '30 - 100 ng/mL' },
+    { key: 'hbsag', label: 'HBsAg (فيروس B)', normal: 'سلبي -ve' },
+    { key: 'hcv', label: 'HCV Ab (فيروس C)', normal: 'سلبي -ve' },
+    { key: 'hiv', label: 'HIV', normal: 'سلبي -ve' },
+    { key: 'ana', label: 'ANA', normal: 'سلبي -ve' },
+    { key: 'rf', label: 'RF (عامل الروماتويد)', normal: 'أقل من 15 IU/mL' },
+    { key: 'anti_ccp', label: 'Anti-CCP', normal: 'أقل من 20 U/mL' }
+  ];
+
+  container.innerHTML = `
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-6">
+        <div>
+          <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <i data-lucide="flask-conical" class="w-5 h-5 text-teal-600"></i>
+            جدول تتبع التحاليل الدوري (Longitudinal Labs Evolution)
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">متابعة الفحوصات الـ 21 والمؤشرات المناعية عبر كافة الزيارات بالتاريخ</p>
+        </div>
+      </div>
+
+      ${labVisits.length === 0 ? `
+        <div class="p-8 text-center text-slate-400 bg-slate-50 rounded-xl">
+          <i data-lucide="flask-round" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+          <p class="text-sm font-semibold text-slate-600">لا توجد نتائج تحاليل مسجلة لهذا المريض بعد</p>
+          <p class="text-xs text-slate-400 mt-1">يمكنك إضافة نتائج التحاليل عند تسجيل كشف جديد أو عبر استخراج الشيت بالذكاء الاصطناعي</p>
+        </div>
+      ` : `
+        <div class="overflow-x-auto">
+          <table class="w-full text-right border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-700">
+                <th class="p-3 font-bold border-l border-slate-200 w-48">اسم التحليل (Test)</th>
+                <th class="p-3 font-bold border-l border-slate-200 w-36 text-slate-400">المعدل الطبيعي</th>
+                ${labVisits.map(v => `
+                  <th class="p-3 font-bold text-center border-l border-slate-200 bg-teal-50/70 text-teal-900">
+                    <div>${formatDate(v.labs.date || v.date)}</div>
+                    <div class="text-[10px] font-normal text-teal-700 mt-0.5">${v.type || 'زيارة'}</div>
+                  </th>
+                `).join('')}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${LAB_PARAMS.map(param => {
+                // Check if any visit has a value for this param
+                const hasValue = labVisits.some(v => v.labs && v.labs[param.key]);
+                return `
+                  <tr class="hover:bg-slate-50/70 transition-colors ${hasValue ? '' : 'opacity-60'}">
+                    <td class="p-3 font-bold text-slate-800 border-l border-slate-100 bg-slate-50/30">
+                      ${param.label}
+                    </td>
+                    <td class="p-3 text-slate-400 border-l border-slate-100">
+                      ${param.normal}
+                    </td>
+                    ${labVisits.map(v => {
+                      const val = v.labs ? v.labs[param.key] : '';
+                      const isHigh = val && (val.includes('مرتفع') || val.includes('+ve') || parseFloat(val) > 35);
+                      return `
+                        <td class="p-3 text-center font-bold border-l border-slate-100 ${
+                          isHigh ? 'bg-rose-50/70 text-rose-700' : 'text-slate-700'
+                        }">
+                          ${val ? `
+                            <span class="${isHigh ? 'px-2 py-0.5 rounded bg-rose-100 border border-rose-200 inline-block' : ''}">
+                              ${escapeHtml(val)}
+                            </span>
+                          ` : '<span class="text-slate-300">---</span>'}
+                        </td>
+                      `;
+                    }).join('')}
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// --- Tab 5: Original Sheets Gallery ---
+function renderGalleryTab(container) {
+  const allImages = [];
+  state.currentVisits.forEach((v, vIdx) => {
+    if (v.images && v.images.length > 0) {
+      v.images.forEach((img, iIdx) => {
+        allImages.push({
+          src: img,
+          visitDate: v.date,
+          visitType: v.type,
+          pageNumber: iIdx + 1
+        });
+      });
+    }
+  });
+
+  container.innerHTML = `
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-6">
+        <div>
+          <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <i data-lucide="images" class="w-5 h-5 text-teal-600"></i>
+            أرشيف الشيتات الورقية الأصلية (${allImages.length} صفحة)
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">الصور الأصلية الممسوحة ضوئياً أو المصورة بالموبايل بكامل دقتها</p>
+        </div>
+      </div>
+
+      ${allImages.length === 0 ? `
+        <div class="p-10 text-center text-slate-400 bg-slate-50 rounded-2xl">
+          <i data-lucide="image-off" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+          <p class="text-sm font-semibold text-slate-600">لا توجد صور شيتات مرفوعة لهذا المريض</p>
+        </div>
+      ` : `
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          ${allImages.map(img => `
+            <div onclick="openLightbox('${img.src}')" class="group relative bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-teal-500 transition-all">
+              <div class="h-64 overflow-hidden bg-slate-100 flex items-center justify-center">
+                <img src="${img.src}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+              </div>
+              <div class="p-3 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-700">صفحة ${img.pageNumber}</span>
+                <span class="text-slate-400">${formatDate(img.visitDate)}</span>
+              </div>
+              <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                <span class="px-3 py-1.5 bg-black/60 rounded-xl font-bold text-xs flex items-center gap-1">
+                  <i data-lucide="zoom-in" class="w-4 h-4"></i> تكبير الصورة
+                </span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// --- In-App Live Camera Engine (WebRTC - Zero Crash, Native Stream) ---
+let liveCameraStream = null;
+let currentFacingMode = 'environment'; // default to rear camera
+
+async function startLiveCamera() {
+  const videoEl = document.getElementById('live-camera-video');
+  const container = document.getElementById('live-camera-container');
+  const errorEl = document.getElementById('live-camera-error');
+  if (!videoEl || !container) return;
+
+  stopLiveCamera();
+
+  try {
+    if (errorEl) errorEl.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    const constraints = {
+      video: {
+        facingMode: { ideal: currentFacingMode },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: false
+    };
+
+    liveCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoEl.srcObject = liveCameraStream;
+    await videoEl.play();
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.warn('Live camera access error:', err);
+    if (container) container.classList.add('hidden');
+    if (errorEl) {
+      errorEl.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+          <span>تعذر فتح الكاميرا المباشرة (${escapeHtml(err.message)}). يمكنك استخدام زر "اختيار من المعرض / الصور".</span>
+        </div>
+      `;
+      errorEl.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+function stopLiveCamera() {
+  if (liveCameraStream) {
+    try {
+      liveCameraStream.getTracks().forEach(t => t.stop());
+    } catch { }
+    liveCameraStream = null;
+  }
+  const videoEl = document.getElementById('live-camera-video');
+  if (videoEl) videoEl.srcObject = null;
+  const container = document.getElementById('live-camera-container');
+  if (container) container.classList.add('hidden');
+}
+
+async function switchLiveCameraFacing() {
+  currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+  await startLiveCamera();
+}
+
+function captureFromLiveCamera() {
+  const videoEl = document.getElementById('live-camera-video');
+  if (!videoEl || !videoEl.videoWidth) {
+    showToast('الكاميرا غير جاهزة بعد، انتظر لحظة', 'warning');
+    return;
+  }
+
+  try {
+    let width = videoEl.videoWidth;
+    let height = videoEl.videoHeight;
+    const maxDim = 1600;
+
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(videoEl, 0, 0, width, height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    state.pendingImages.push({
+      name: `sheet_page_${state.pendingImages.length + 1}.jpg`,
+      data: dataUrl,
+      mimeType: 'image/jpeg',
+      width: width,
+      height: height
+    });
+
+    renderUploadImagesList();
+    showToast(`✅ تم التقاط صفحة ${state.pendingImages.length} بنجاح!`, 'success');
+
+    videoEl.classList.add('opacity-40');
+    setTimeout(() => videoEl.classList.remove('opacity-40'), 150);
+  } catch (err) {
+    console.error('Frame capture error:', err);
+    showToast('حدث خطأ أثناء التقاط الإطار: ' + err.message, 'error');
+  }
+}
+
+// --- Image Compression & Mobile Optimization (Zero-Memory ObjectURL) ---
+function compressImage(file, maxDimension = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('الملف غير موجود'));
+
+    let blobUrl = null;
+    try {
+      blobUrl = URL.createObjectURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (e) => processImgSrc(e.target.result, null, resolve, reject, file, maxDimension, quality);
+      reader.onerror = () => reject(new Error('تعذر قراءة ملف الصورة'));
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    processImgSrc(blobUrl, blobUrl, resolve, reject, file, maxDimension, quality);
+  });
+}
+
+function processImgSrc(src, blobToRevoke, resolve, reject, file, maxDimension, quality) {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      if (!width || !height) {
+        if (blobToRevoke) URL.revokeObjectURL(blobToRevoke);
+        return resolve({
+          name: file.name || `sheet_${Date.now()}.jpg`,
+          data: src,
+          mimeType: file.type || 'image/jpeg'
+        });
+      }
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+      if (blobToRevoke) URL.revokeObjectURL(blobToRevoke);
+      canvas.width = 0;
+      canvas.height = 0;
+
+      resolve({
+        name: file.name ? file.name.replace(/\.[^/.]+$/, '') + '.jpg' : `sheet_${Date.now()}.jpg`,
+        data: compressedDataUrl,
+        mimeType: 'image/jpeg',
+        width: width,
+        height: height
+      });
+    } catch (err) {
+      if (blobToRevoke) URL.revokeObjectURL(blobToRevoke);
+      reject(err);
+    }
+  };
+  img.onerror = (err) => {
+    if (blobToRevoke) URL.revokeObjectURL(blobToRevoke);
+    reject(new Error('تعذر فك ترميز ملف الصورة'));
+  };
+  img.src = src;
+}
+
+// --- Upload & AI Vision Modal Flow ---
+function openUploadModal(presetImages = null, targetPatient = null) {
+  if (presetImages !== null) {
+    state.pendingImages = presetImages;
+  }
+  renderUploadImagesList();
+
+  const pat = targetPatient || state.currentPatient;
+  const nameEl = document.getElementById('offline-sheet-name');
+  const codeEl = document.getElementById('offline-sheet-code');
+  if (nameEl && pat && !nameEl.value) nameEl.value = pat.name || '';
+  if (codeEl && pat && !codeEl.value) codeEl.value = pat.code || '';
+
+  document.getElementById('upload-modal').classList.remove('hidden');
+  document.getElementById('upload-step-1').classList.remove('hidden');
+  document.getElementById('upload-step-ai-preview').classList.add('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeUploadModal() {
+  stopLiveCamera();
+  document.getElementById('upload-modal').classList.add('hidden');
+  state.pendingImages = [];
+  renderUploadImagesList();
+}
+
+async function handleImageFiles(files) {
+  if (!files || files.length === 0) return;
+
+  const validFiles = Array.from(files).filter(f => f.type && f.type.startsWith('image/'));
+  if (validFiles.length === 0) {
+    showToast('يرجى اختيار ملف صورة صالح (JPG / PNG)', 'warning');
+    return;
+  }
+
+  showToast(`جاري تجهيز ${validFiles.length} صورة وتحسين الحجم للموبايل...`, 'info');
+
+  for (const file of validFiles) {
+    try {
+      const processed = await compressImage(file);
+      state.pendingImages.push(processed);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      showToast('تعذر معالجة إحدى الصور: ' + err.message, 'warning');
+    }
+  }
+
+  renderUploadImagesList();
+}
+
+function renderUploadImagesList() {
+  const container = document.getElementById('uploaded-preview-grid');
+  const actionBtn = document.getElementById('btn-run-ai-extract');
+  const offlineBtn = document.getElementById('btn-save-locally-offline');
+  if (!container) return;
+
+  if (state.pendingImages.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-6 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+        <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+        <p class="text-sm font-semibold text-slate-600">لم يتم اختيار أي صور حتى الآن</p>
+        <p class="text-xs text-slate-400 mt-1">التقط صورة بكاميرا الهاتف أو اختر صفحات الشيت من الجهاز</p>
+      </div>
+    `;
+    if (actionBtn) actionBtn.disabled = true;
+    if (offlineBtn) offlineBtn.disabled = true;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  if (actionBtn) actionBtn.disabled = false;
+  if (offlineBtn) offlineBtn.disabled = false;
+
+  container.innerHTML = state.pendingImages.map((img, idx) => `
+    <div class="relative group h-32 rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
+      <img src="${img.data}" class="w-full h-full object-cover" />
+      <button onclick="removePendingImage(${idx})" class="absolute top-1.5 left-1.5 p-1 bg-rose-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+      <span class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded font-bold">
+        صفحة ${idx + 1}
+      </span>
+    </div>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function removePendingImage(idx) {
+  state.pendingImages.splice(idx, 1);
+  renderUploadImagesList();
+}
+
+/**
+ * Save sheet images locally without AI (Offline Mode)
+ */
+async function saveSheetLocallyOffline() {
+  if (!state.pendingImages || state.pendingImages.length === 0) {
+    showToast('يرجى التقاط أو إضافة صورة شيت واحدة على الأقل للحفظ', 'warning');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btn-save-locally-offline');
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    const nameInput = document.getElementById('offline-sheet-name');
+    const codeInput = document.getElementById('offline-sheet-code');
+
+    const enteredName = nameInput ? nameInput.value.trim() : '';
+    const enteredCode = codeInput ? codeInput.value.trim() : '';
+
+    let patient = null;
+
+    // Find if code matches existing patient
+    if (enteredCode) {
+      patient = state.patients.find(p => p.code && String(p.code).trim().toLowerCase() === enteredCode.toLowerCase());
+    }
+
+    // Find if name matches or current patient matches
+    if (!patient && enteredName) {
+      patient = state.patients.find(p => p.name && p.name.trim().toLowerCase() === enteredName.toLowerCase());
+    }
+
+    if (!patient && state.currentPatient && (!enteredName || enteredName === state.currentPatient.name)) {
+      patient = state.currentPatient;
+    }
+
+    // If new patient, create in IndexedDB
+    if (!patient) {
+      const code = enteredCode || `RH-${state.patients.length + 101}`;
+      const name = enteredName || `مريض شيت (${code})`;
+      patient = {
+        id: 'patient_' + Date.now(),
+        code: code,
+        name: name,
+        createdAt: new Date().toISOString()
+      };
+      await window.clinicDB.savePatient(patient);
+    }
+
+    // Create visit with isPendingAI = true
+    const visit = {
+      id: 'visit_' + Date.now(),
+      patientId: patient.id,
+      date: new Date().toISOString().split('T')[0],
+      type: `شيت محفوظ محلياً (${state.pendingImages.length} صفحات)`,
+      isPendingAI: true,
+      history: 'تم حفظ صور الشيت محلياً على الجهاز. بانتظار التفريغ التلقائي بالذكاء الاصطناعي عند توفر الإنترنت.',
+      examNotes: 'صور الشيت محفوظة بالكامل في التايم لاين والأرشيف.',
+      treatment: '',
+      plan: '',
+      labs: {},
+      images: state.pendingImages.map(img => img.data),
+      createdAt: new Date().toISOString()
+    };
+
+    await window.clinicDB.saveVisit(visit);
+    await loadPatients();
+    await selectPatient(patient.id);
+
+    closeUploadModal();
+    showToast('✅ تم حفظ صور الشيت محلياً في ملف المريض بنجاح! يمكنك تفريغها بالذكاء الاصطناعي لاحقاً.', 'success');
+  } catch (err) {
+    console.error('Save sheet error:', err);
+    showToast('حدث خطأ أثناء حفظ الشيت: ' + err.message, 'error');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+/**
+ * Re-run AI extraction for a previously stored visit
+ */
+async function runAILaterForVisit(visitId) {
+  const visit = state.currentVisits.find(v => v.id === visitId);
+  if (!visit || !visit.images || visit.images.length === 0) {
+    showToast('لا توجد صور محفوظة لهذه الزيارة لتفريغها', 'warning');
+    return;
+  }
+
+  const preset = visit.images.map((data, idx) => ({
+    name: `sheet_page_${idx + 1}.png`,
+    data: data,
+    mimeType: 'image/png'
+  }));
+
+  openUploadModal(preset, state.currentPatient);
+  runAIExtraction();
+}
+
+async function runAIExtraction() {
+  if (state.pendingImages.length === 0) {
+    showToast('يرجى إضافة صورة شيت واحدة على الأقل للبدء', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-ai-extract');
+  const spinner = document.getElementById('ai-extract-spinner');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.classList.remove('hidden');
+
+  try {
+    const extracted = await window.geminiExtractor.extractSheetData(state.pendingImages);
+    state.extractedData = extracted;
+
+    // Switch to Side-by-Side Review step
+    document.getElementById('upload-step-1').classList.add('hidden');
+    document.getElementById('upload-step-ai-preview').classList.remove('hidden');
+
+    renderAISideBySidePreview(extracted);
+  } catch (err) {
+    console.error('AI Extraction error:', err);
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function renderAISideBySidePreview(data) {
+  // Populate Image Viewer
+  const imgViewer = document.getElementById('ai-preview-image');
+  if (imgViewer && state.pendingImages[0]) {
+    imgViewer.src = state.pendingImages[0].data;
+  }
+
+  // Populate Form Fields
+  document.getElementById('ai-field-code').value = data.code || '';
+  document.getElementById('ai-field-name').value = data.name || '';
+  document.getElementById('ai-field-age').value = data.age || '';
+  document.getElementById('ai-field-phone').value = data.phone || '';
+  document.getElementById('ai-field-address').value = data.address || '';
+  document.getElementById('ai-field-diagnosis').value = data.diagnosis || '';
+  document.getElementById('ai-field-sex').value = data.sex || 'أنثى';
+  document.getElementById('ai-field-gpl').value = data.gpl || '';
+  document.getElementById('ai-field-menses').value = data.menses || '';
+  document.getElementById('ai-field-allergy').value = data.allergy || '';
+  document.getElementById('ai-field-operations').value = data.operations || '';
+  document.getElementById('ai-field-family').value = data.familyHistory || '';
+  document.getElementById('ai-field-current-ttt').value = data.currentTTT || '';
+  document.getElementById('ai-field-complaint').value = data.mainComplaint || '';
+  document.getElementById('ai-field-bp').value = data.vitals?.bp || '';
+  document.getElementById('ai-field-exam').value = data.examNotes || '';
+  document.getElementById('ai-field-ttt').value = data.treatment || '';
+  document.getElementById('ai-field-plan').value = data.plan || '';
+}
+
+async function approveAndSaveExtractedData() {
+  const code = document.getElementById('ai-field-code').value.trim() || `RH-${Date.now().toString().slice(-4)}`;
+  const name = document.getElementById('ai-field-name').value.trim();
+
+  if (!name) {
+    showToast('يرجى كتابة اسم المريض لاعتماد الحفظ', 'warning');
+    return;
+  }
+
+  // Check if patient with this code exists or create new
+  let patient = state.patients.find(p => p.code && p.code === code);
+  const isNew = !patient;
+
+  if (isNew) {
+    patient = {
+      id: 'patient_' + Date.now(),
+      code: code,
+      name: name,
+      age: document.getElementById('ai-field-age').value.trim(),
+      phone: document.getElementById('ai-field-phone').value.trim(),
+      address: document.getElementById('ai-field-address').value.trim(),
+      diagnosis: document.getElementById('ai-field-diagnosis').value.trim(),
+      sex: document.getElementById('ai-field-sex').value.trim(),
+      gpl: document.getElementById('ai-field-gpl').value.trim(),
+      menses: document.getElementById('ai-field-menses').value.trim(),
+      allergy: document.getElementById('ai-field-allergy').value.trim(),
+      operations: document.getElementById('ai-field-operations').value.trim(),
+      familyHistory: document.getElementById('ai-field-family').value.trim(),
+      currentTTT: document.getElementById('ai-field-current-ttt').value.trim(),
+      mainComplaint: document.getElementById('ai-field-complaint').value.trim(),
+      createdAt: new Date().toISOString()
+    };
+  } else {
+    // Update existing patient info if filled
+    patient.name = name;
+    patient.phone = document.getElementById('ai-field-phone').value.trim() || patient.phone;
+    patient.diagnosis = document.getElementById('ai-field-diagnosis').value.trim() || patient.diagnosis;
+  }
+
+  await window.clinicDB.savePatient(patient);
+
+  // Create Visit
+  const visit = {
+    id: 'visit_' + Date.now(),
+    patientId: patient.id,
+    date: new Date().toISOString().split('T')[0],
+    type: isNew ? 'كشف أول (Initial Sheet)' : 'متابعة شيت دوري',
+    vitals: {
+      bp: document.getElementById('ai-field-bp').value.trim()
+    },
+    history: document.getElementById('ai-field-complaint').value.trim(),
+    examNotes: document.getElementById('ai-field-exam').value.trim(),
+    treatment: document.getElementById('ai-field-ttt').value.trim(),
+    plan: document.getElementById('ai-field-plan').value.trim(),
+    labs: state.extractedData?.labs || {},
+    images: state.pendingImages.map(img => img.data)
+  };
+
+  await window.clinicDB.saveVisit(visit);
+  await loadPatients();
+  await selectPatient(patient.id);
+
+  closeUploadModal();
+  showToast('تم اعتماد واستخراج الشيت بنجاح وإضافته لملف المريض!', 'success');
+}
+
+// --- Print E-Prescription / Report Modal ---
+function printVisitReport(visitId) {
+  const visit = state.currentVisits.find(v => v.id === visitId);
+  const patient = state.currentPatient;
+  if (!visit || !patient) return;
+
+  const modal = document.getElementById('print-modal');
+  const printBody = document.getElementById('print-paper-content');
+
+  printBody.innerHTML = `
+    <!-- Letterhead Header -->
+    <div class="border-b-2 border-teal-700 pb-4 mb-5 flex items-center justify-between">
+      <div class="text-right">
+        <h2 class="text-2xl font-black text-teal-900 mb-1">د. محمود غنيمة</h2>
+        <p class="text-xs font-bold text-teal-700">استشاري ومدرس الروماتيزم والمناعة - كلية الطب، جامعة القاهرة</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">دكتوراه أمراض الباطنة والروماتيزم والمناعة | مستشفى دار الفؤاد ومصر الدولي</p>
+      </div>
+      <div class="w-16 h-16 rounded-full overflow-hidden border border-teal-200">
+        <img src="assets/doctor_logo.png" class="w-full h-full object-cover" />
+      </div>
+    </div>
+
+    <!-- Patient Bar -->
+    <div class="bg-teal-50/70 border border-teal-200 rounded-xl p-3 flex flex-wrap items-center justify-between text-xs font-bold text-slate-800 mb-5">
+      <div>اسم المريض: <span class="text-teal-900">${escapeHtml(patient.name)}</span></div>
+      <div>كود: <span class="text-teal-900">${patient.code}</span></div>
+      <div>السن: <span>${patient.age || '---'}</span></div>
+      <div>التاريخ: <span>${formatDate(visit.date)}</span></div>
+      ${visit.vitals?.bp ? `<div>الضغط: <span class="text-rose-700">${visit.vitals.bp}</span></div>` : ''}
+    </div>
+
+    ${patient.diagnosis ? `
+      <div class="mb-4 text-xs font-bold text-teal-900 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+        التشخيص (Diagnosis): <span class="font-normal text-slate-800">${escapeHtml(patient.diagnosis)}</span>
+      </div>
+    ` : ''}
+
+    <!-- Rx / Treatment Body -->
+    <div class="min-h-[300px] border border-slate-200 rounded-2xl p-5 mb-5">
+      <div class="text-teal-800 font-serif font-black text-3xl mb-3 tracking-widest">℞</div>
+      <div class="text-sm text-slate-800 whitespace-pre-line leading-loose font-sans">
+        ${escapeHtml(visit.treatment || 'لم يسجل علاج محدد لهذه الزيارة.')}
+      </div>
+    </div>
+
+    <!-- Plan / Investigations -->
+    ${visit.plan ? `
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs mb-5">
+        <span class="font-bold text-slate-700 block mb-1">التحاليل والتوصيات القادمة (Investigations & Plan):</span>
+        <p class="text-slate-600 whitespace-pre-line">${escapeHtml(visit.plan)}</p>
+      </div>
+    ` : ''}
+
+    <!-- Footer -->
+    <div class="border-t border-slate-200 pt-3 flex items-center justify-between text-[11px] text-slate-400">
+      <span>تمنياتنا بالشفاء العاجل</span>
+      <span class="font-bold text-slate-600">توقيع الطبيب: ...............................</span>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function triggerBrowserPrint() {
+  window.print();
+}
+
+// --- Lightbox Image Zoom ---
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  lb.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox-modal').classList.add('hidden');
+}
+
+// --- Settings & Backup ---
+async function openSettingsModal() {
+  const currentKey = await window.clinicDB.getSetting('gemini_api_key', '');
+  document.getElementById('setting-gemini-key').value = currentKey;
+  const statusEl = document.getElementById('gemini-key-status');
+  if (statusEl) {
+    const workingModel = await window.clinicDB.getSetting('gemini_working_model', null);
+    if (currentKey && workingModel) {
+      statusEl.className = 'p-2 rounded-lg text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200 block';
+      statusEl.innerHTML = `النموذج النشط حالياً: <b dir="ltr" class="font-mono">${workingModel}</b>`;
+    } else {
+      statusEl.classList.add('hidden');
+    }
+  }
+  document.getElementById('settings-modal').classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.add('hidden');
+}
+
+async function testAndDetectGeminiKey() {
+  const keyInput = document.getElementById('setting-gemini-key');
+  const statusEl = document.getElementById('gemini-key-status');
+  const key = keyInput.value.trim();
+
+  if (!key) {
+    statusEl.className = 'p-2 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-900 block';
+    statusEl.textContent = 'يرجى كتابة أو لصق المفتاح أولاً لفحصه.';
+    return;
+  }
+
+  statusEl.className = 'p-2 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 block';
+  statusEl.innerHTML = '<span class="inline-block animate-spin ml-1">⏳</span> جاري فحص المفتاح واكتشاف النماذج المدعومة من Google...';
+
+  try {
+    const models = await window.geminiExtractor.listSupportedModels(key);
+    if (models.length > 0) {
+      // Clear old model cache so we get fresh one
+      await window.clinicDB.setSetting('gemini_working_model', null);
+      const best = await window.geminiExtractor.resolveWorkingModel(key);
+      await window.clinicDB.setSetting('gemini_api_key', key);
+      window.geminiExtractor.apiKey = key;
+
+      statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 block';
+      statusEl.innerHTML = `✅ متصل بنجاح! تم العثور على (${models.length}) نماذج.<br>النموذج المعتمد للتفريغ: <b dir="ltr" class="font-mono text-emerald-950">${best}</b>`;
+      showToast('تم تفعيل واكتشاف النموذج بنجاح!', 'success');
+    } else {
+      statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 block';
+      statusEl.textContent = '⚠️ لم يتم استرجاع القائمة عبر ListModels، تم تجهيز قائمة النماذج البديلة (Gemini 2.0 / 2.5 Flash).';
+    }
+  } catch (err) {
+    statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300 block';
+    statusEl.textContent = '❌ خطأ في فحص المفتاح: ' + err.message;
+  }
+}
+
+async function saveSettings() {
+  const key = document.getElementById('setting-gemini-key').value.trim();
+  await window.clinicDB.setSetting('gemini_api_key', key);
+  await window.clinicDB.setSetting('gemini_working_model', null); // clear so it re-detects for this key
+  window.geminiExtractor.apiKey = key;
+  showToast('تم حفظ الإعدادات بنجاح', 'success');
+  closeSettingsModal();
+}
+
+async function exportBackupFile() {
+  const jsonStr = await window.clinicDB.exportFullBackup();
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Dr_Ghanema_Clinic_Backup_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تنزيل النسخة الاحتياطية بنجاح', 'success');
+}
+
+async function importBackupFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      await window.clinicDB.importFullBackup(e.target.result);
+      await loadPatients();
+      if (state.patients.length > 0) selectPatient(state.patients[0].id);
+      showToast('تم استعادة النسخة الاحتياطية بنجاح!', 'success');
+      closeSettingsModal();
+    } catch (err) {
+      showToast('فشل استعادة الملف: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// --- New Visit Manual Modal ---
+function openNewVisitModal() {
+  if (!state.currentPatient) return;
+  document.getElementById('nv-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('nv-bp').value = '';
+  document.getElementById('nv-notes').value = '';
+  document.getElementById('nv-exam').value = '';
+  document.getElementById('nv-ttt').value = '';
+  document.getElementById('nv-plan').value = '';
+  document.getElementById('new-visit-modal').classList.remove('hidden');
+}
+
+function closeNewVisitModal() {
+  document.getElementById('new-visit-modal').classList.add('hidden');
+}
+
+async function saveNewVisitManual() {
+  if (!state.currentPatient) return;
+
+  const visit = {
+    id: 'visit_' + Date.now(),
+    patientId: state.currentPatient.id,
+    date: document.getElementById('nv-date').value || new Date().toISOString().split('T')[0],
+    type: document.getElementById('nv-type').value || 'كشف ومتابعة',
+    vitals: {
+      bp: document.getElementById('nv-bp').value.trim()
+    },
+    history: document.getElementById('nv-notes').value.trim(),
+    examNotes: document.getElementById('nv-exam').value.trim(),
+    treatment: document.getElementById('nv-ttt').value.trim(),
+    plan: document.getElementById('nv-plan').value.trim(),
+    labs: {},
+    images: []
+  };
+
+  await window.clinicDB.saveVisit(visit);
+  await selectPatient(state.currentPatient.id);
+  closeNewVisitModal();
+  showToast('تم تسجيل الزيارة بنجاح', 'success');
+}
+
+// --- Edit Patient Modal Handling ---
+function openEditPatientModal() {
+  const p = state.currentPatient;
+  if (!p) return;
+
+  document.getElementById('edit-p-code').value = p.code || '';
+  document.getElementById('edit-p-name').value = p.name || '';
+  document.getElementById('edit-p-age').value = p.age || '';
+  document.getElementById('edit-p-phone').value = p.phone || '';
+  document.getElementById('edit-p-sex').value = p.sex || 'أنثى';
+  document.getElementById('edit-p-address').value = p.address || '';
+  document.getElementById('edit-p-diagnosis').value = p.diagnosis || '';
+  document.getElementById('edit-p-occupation').value = p.occupation || '';
+  document.getElementById('edit-p-marital').value = p.marital || '';
+  document.getElementById('edit-p-gpl').value = p.gpl || '';
+  document.getElementById('edit-p-menses').value = p.menses || '';
+  document.getElementById('edit-p-smoking').value = p.smoking || '';
+  document.getElementById('edit-p-allergy').value = p.allergy || '';
+  document.getElementById('edit-p-operations').value = p.operations || '';
+  document.getElementById('edit-p-family').value = p.familyHistory || '';
+  document.getElementById('edit-p-current-ttt').value = p.currentTTT || '';
+  document.getElementById('edit-p-complaint').value = p.mainComplaint || '';
+
+  document.getElementById('edit-patient-modal').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function saveEditedPatient() {
+  const p = state.currentPatient;
+  if (!p) return;
+
+  p.code = document.getElementById('edit-p-code').value.trim() || p.code;
+  p.name = document.getElementById('edit-p-name').value.trim() || p.name;
+  p.age = document.getElementById('edit-p-age').value.trim();
+  p.phone = document.getElementById('edit-p-phone').value.trim();
+  p.sex = document.getElementById('edit-p-sex').value;
+  p.address = document.getElementById('edit-p-address').value.trim();
+  p.diagnosis = document.getElementById('edit-p-diagnosis').value.trim();
+  p.occupation = document.getElementById('edit-p-occupation').value.trim();
+  p.marital = document.getElementById('edit-p-marital').value.trim();
+  p.gpl = document.getElementById('edit-p-gpl').value.trim();
+  p.menses = document.getElementById('edit-p-menses').value.trim();
+  p.smoking = document.getElementById('edit-p-smoking').value.trim();
+  p.allergy = document.getElementById('edit-p-allergy').value.trim();
+  p.operations = document.getElementById('edit-p-operations').value.trim();
+  p.familyHistory = document.getElementById('edit-p-family').value.trim();
+  p.currentTTT = document.getElementById('edit-p-current-ttt').value.trim();
+  p.mainComplaint = document.getElementById('edit-p-complaint').value.trim();
+
+  await window.clinicDB.savePatient(p);
+  await loadPatients();
+  await selectPatient(p.id);
+
+  document.getElementById('edit-patient-modal').classList.add('hidden');
+  showToast('تم تحديث بيانات المريض والشيت بنجاح!', 'success');
+}
+
+// --- Delete Patient / Visit Confirmation ---
+async function deleteCurrentPatient() {
+  if (!state.currentPatient) return;
+  if (!confirm(`هل أنت متأكد من حذف ملف المريض "${state.currentPatient.name}" وكافة زياراته؟`)) return;
+
+  await window.clinicDB.deletePatient(state.currentPatient.id);
+  state.currentPatient = null;
+  await loadPatients();
+  if (state.patients.length > 0) {
+    selectPatient(state.patients[0].id);
+  } else {
+    document.getElementById('patient-profile-view').classList.add('hidden');
+    document.getElementById('patient-empty-view').classList.remove('hidden');
+  }
+  showToast('تم حذف ملف المريض بنجاح', 'info');
+}
+
+async function deleteVisitConfirm(visitId) {
+  if (!confirm('هل تريد بالتأكيد حذف هذه الزيارة؟')) return;
+  await window.clinicDB.deleteVisit(visitId);
+  await selectPatient(state.currentPatient.id);
+  showToast('تم حذف الزيارة بنجاح', 'info');
+}
+
+// --- Event Listeners Helper ---
+function setupEventListeners() {
+  // Global Search input
+  const searchInput = document.getElementById('global-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      loadPatients(e.target.value);
+    });
+  }
+
+  // Drag and drop for upload zone
+  const dropZone = document.getElementById('upload-dropzone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-teal-500', 'bg-teal-50/50');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-teal-500', 'bg-teal-50/50');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-teal-500', 'bg-teal-50/50');
+      handleImageFiles(e.dataTransfer.files);
+    });
+  }
+}
+
+// --- Utilities ---
+function formatDate(dateStr) {
+  if (!dateStr) return '---';
+  try {
+    const d = new Date(dateStr);
+    return isNaN(d) ? dateStr : d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function showToast(msg, type = 'info') {
+  const toast = document.createElement('div');
+  const colors = {
+    success: 'bg-emerald-600 text-white',
+    error: 'bg-rose-600 text-white',
+    warning: 'bg-amber-500 text-white',
+    info: 'bg-slate-800 text-white'
+  };
+  toast.className = `fixed bottom-5 left-5 z-50 px-5 py-3 rounded-2xl shadow-xl font-bold text-sm flex items-center gap-2 transform transition-all duration-300 translate-y-10 opacity-0 ${colors[type] || colors.info}`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-10', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('translate-y-10', 'opacity-0');
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// --- Mobile Navigation & UX Controllers ---
+function showMobileView(view) {
+  const sidebar = document.getElementById('patients-sidebar-col');
+  const detail = document.getElementById('patient-detail-col');
+  const btnPatients = document.getElementById('nav-btn-patients');
+  const btnProfile = document.getElementById('nav-btn-profile');
+
+  if (view === 'patients') {
+    if (sidebar) sidebar.className = 'block lg:col-span-4 space-y-4';
+    if (detail) detail.className = 'hidden lg:block lg:col-span-8 space-y-5';
+
+    if (btnPatients) btnPatients.className = 'flex flex-col items-center gap-1 text-teal-700 text-[11px] font-black transition-all';
+    if (btnProfile) btnProfile.className = 'flex flex-col items-center gap-1 text-slate-400 hover:text-teal-700 text-[11px] font-bold transition-all';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    if (sidebar) sidebar.className = 'hidden lg:block lg:col-span-4 space-y-4';
+    if (detail) detail.className = 'block lg:col-span-8 space-y-5';
+
+    if (btnPatients) btnPatients.className = 'flex flex-col items-center gap-1 text-slate-400 hover:text-teal-700 text-[11px] font-bold transition-all';
+    if (btnProfile) btnProfile.className = 'flex flex-col items-center gap-1 text-teal-700 text-[11px] font-black transition-all';
+
+    // If no current patient selected, select first
+    if (!state.currentPatient && state.patients.length > 0) {
+      selectPatient(state.patients[0].id);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function triggerDirectMobileCamera() {
+  openUploadModal();
+  startLiveCamera();
+}
+
+async function handleDirectCameraCapture(files) {
+  if (!files || files.length === 0) return;
+  openUploadModal();
+  await handleImageFiles(files);
+
+  // Clear file inputs so same camera/file can be triggered repeatedly
+  const singleCam = document.getElementById('mobile-camera-single-input');
+  if (singleCam) singleCam.value = '';
+  const multiGal = document.getElementById('mobile-gallery-input');
+  if (multiGal) multiGal.value = '';
+  const sheetInput = document.getElementById('sheet-file-input');
+  if (sheetInput) sheetInput.value = '';
+}
+
+function toggleMobileAIReviewView(mode) {
+  const formCol = document.getElementById('ai-review-form-col');
+  const imgCol = document.getElementById('ai-review-image-col');
+  const tabForm = document.getElementById('ai-tab-btn-form');
+  const tabImg = document.getElementById('ai-tab-btn-image');
+
+  if (mode === 'form') {
+    if (formCol) formCol.className = 'block lg:col-span-7 space-y-3 max-h-[60vh] overflow-y-auto pr-2';
+    if (imgCol) imgCol.className = 'hidden lg:flex lg:col-span-5 bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex-col h-[55vh] sm:h-[60vh]';
+    if (tabForm) tabForm.className = 'flex-1 py-2 rounded-xl bg-white text-teal-800 shadow-sm text-center transition-all';
+    if (tabImg) tabImg.className = 'flex-1 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-center transition-all';
+  } else {
+    if (formCol) formCol.className = 'hidden lg:block lg:col-span-7 space-y-3 max-h-[60vh] overflow-y-auto pr-2';
+    if (imgCol) imgCol.className = 'flex lg:col-span-5 bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex-col h-[55vh] sm:h-[60vh]';
+    if (tabForm) tabForm.className = 'flex-1 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-center transition-all';
+    if (tabImg) tabImg.className = 'flex-1 py-2 rounded-xl bg-white text-teal-800 shadow-sm text-center transition-all';
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+// --- Mobile Connect & QR Code Integration ---
+let activeServerUrls = null;
+
+async function fetchActiveUrls() {
+  try {
+    const res = await fetch('active-urls.json?t=' + Date.now());
+    if (res.ok) {
+      activeServerUrls = await res.json();
+    }
+  } catch (e) {
+    console.warn('Could not fetch active-urls.json:', e);
+  }
+}
+
+async function openMobileConnectModal() {
+  const modal = document.getElementById('mobile-connect-modal');
+  if (!modal) return;
+
+  if (!activeServerUrls) {
+    await fetchActiveUrls();
+  }
+
+  const targetUrl = (activeServerUrls && activeServerUrls.tunnelUrl) 
+    ? activeServerUrls.tunnelUrl 
+    : ((activeServerUrls && activeServerUrls.wifiUrl) ? activeServerUrls.wifiUrl : window.location.href);
+
+  const urlInput = document.getElementById('mobile-direct-url-input');
+  if (urlInput) urlInput.value = targetUrl;
+
+  const qrImg = document.getElementById('mobile-qr-image');
+  if (qrImg) {
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetUrl)}`;
+  }
+
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeMobileConnectModal() {
+  const modal = document.getElementById('mobile-connect-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function copyMobileUrl() {
+  const urlInput = document.getElementById('mobile-direct-url-input');
+  if (!urlInput) return;
+  urlInput.select();
+  navigator.clipboard.writeText(urlInput.value).then(() => {
+    showToast('تم نسخ الرابط بنجاح! أرسله أو افتحه على الموبايل', 'success');
+  }).catch(() => {
+    showToast('تم تحديد الرابط، يرجى نسخه يدوياً', 'info');
+  });
+}
+

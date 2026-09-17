@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عيادة د. محمود غنيمة | استشاري ومدرس الروماتيزم والمناعة</title>
+  
+  <!-- PWA Manifest & Mobile Icons -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="عيادة د. غنيمة">
+  <link rel="apple-touch-icon" href="assets/doctor_logo.png">
+  <link rel="icon" type="image/png" href="assets/doctor_logo.png">
+  
+  <!-- Google Fonts: Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf9',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f8fafc;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-modal, #print-modal * {
+        visibility: visible;
+      }
+      #print-modal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- TOP CLINIC HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20 gap-4">
+        
+        <!-- Doctor Branding & Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-13 h-13 rounded-2xl overflow-hidden shadow-sm border border-teal-100 flex-shrink-0 bg-white p-0.5">
+            <img src="assets/doctor_logo.png" alt="Dr. Mahmoud Ghanema Logo" class="w-12 h-12 object-contain" />
+          </div>
+          <div class="text-right">
+            <h1 class="text-lg sm:text-xl font-black text-slate-900 leading-tight flex items-center gap-2">
+              <span>عيادة د. محمود غنيمة</span>
+              <span class="text-[11px] font-bold bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full hidden sm:inline-block">روماتيزم ومناعة</span>
+            </h1>
+            <p class="text-xs text-teal-700 font-bold hidden md:block">
+              استشاري ومدرس الروماتيزم والمناعة الإكلينيكية - كلية الطب، جامعة القاهرة
+            </p>
+          </div>
+        </div>
+
+        <!-- Global Search Bar (Code, Name, Phone) -->
+        <div class="flex-1 max-w-md mx-2">
+          <div class="relative">
+            <input type="text" id="global-search-input" 
+                   placeholder="ابحث بالاسم، رقم الهاتف، أو كود المريض (مثال: 594)..." 
+                   class="w-full pl-4 pr-10 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 focus:border-teal-500 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all text-right shadow-inner">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2"></i>
+          </div>
+        </div>
+
+        <!-- Top Actions -->
+        <div class="flex items-center gap-2">
+          <!-- Real-Time Online / Offline Connectivity Indicator -->
+          <div id="network-status-badge" class="px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-[11px] font-bold text-emerald-800 hidden sm:inline">أونلاين</span>
+          </div>
+
+          <!-- PWA Native Install Button (Shown on supported devices via sync.js) -->
+          <button id="btn-pwa-install" onclick="triggerPWAInstall()" title="تثبيت التطبيق على جهازك للعمل أوفلاين كـ App" class="hidden items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-sm text-xs font-bold">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span class="hidden md:inline">تثبيت التطبيق</span>
+          </button>
+
+          <!-- Mobile Connect QR Button (Desktop) -->
+          <button onclick="openMobileConnectModal()" title="فتح السيستم على الموبايل عبر QR Code" class="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-xl transition-all border border-teal-200 text-xs font-bold">
+            <i data-lucide="smartphone" class="w-4 h-4 text-teal-600"></i>
+            <span>ربط الموبايل (QR)</span>
+          </button>
+
+          <!-- Primary Upload & AI Button -->
+          <button onclick="openUploadModal()" class="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl shadow-md hover:shadow-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">تصوير ورفع شيت (AI)</span>
+            <span class="sm:hidden">رفع شيت</span>
+          </button>
+
+          <!-- Settings Button -->
+          <button onclick="openSettingsModal()" title="إعدادات النظام ومفتاح الذكاء الاصطناعي" class="p-2.5 text-slate-600 hover:text-teal-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APPLICATION CONTENT -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 lg:pb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+      
+      <!-- RIGHT COLUMN: PATIENTS DIRECTORY (4 Cols on LG) -->
+      <aside id="patients-sidebar-col" class="block lg:col-span-4 space-y-4">
+        <div class="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+            <h3 class="font-black text-slate-800 text-sm flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-teal-600"></i>
+              سجل المرضى
+              <span id="stat-total-patients" class="px-2 py-0.5 text-xs bg-slate-100 text-slate-700 rounded-full font-bold">0</span>
+            </h3>
+            <button onclick="openManualNewPatientModal()" class="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 hover:underline">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> مريض جديد
+            </button>
+          </div>
+
+          <!-- Dynamic Patients List Container -->
+          <div id="patients-list-container" class="space-y-2.5 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- LEFT COLUMN: PATIENT DASHBOARD & TABS (8 Cols on LG) -->
+      <section id="patient-detail-col" class="hidden lg:block lg:col-span-8 space-y-5">
+        
+        <!-- Empty State Placeholder -->
+        <div id="patient-empty-view" class="hidden bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center shadow-sm">
+          <div class="w-16 sm:w-20 h-16 sm:h-20 mx-auto mb-4 bg-teal-50 text-teal-600 rounded-3xl flex items-center justify-center">
+            <i data-lucide="folder-search" class="w-8 sm:w-10 h-8 sm:h-10"></i>
+          </div>
+          <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-1">اختر مريضاً من القائمة أو أضف مريضاً جديداً</h3>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto mb-6">
+            يمكنك تصفح ملف المريض، والاطلاع على شريط الزيارات الزمني، وجدول تتبع التحاليل، ومخطط المفاصل، أو تصوير شيت جديد.
+          </p>
+          <button onclick="openUploadModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-bold shadow-md inline-flex items-center gap-2 transition-all">
+            <i data-lucide="camera" class="w-4 h-4"></i> رفع وتفريغ شيت فوري (AI)
+          </button>
+        </div>
+
+        <!-- Active Patient View -->
+        <div id="patient-profile-view" class="space-y-5">
+          
+          <!-- PATIENT HERO HEADER BANNER -->
+          <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/50 relative overflow-hidden">
+            <!-- Background Glow -->
+            <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Mobile Back Button -->
+            <div class="lg:hidden mb-3">
+              <button onclick="showMobileView('patients')" class="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all">
+                <i data-lucide="arrow-right" class="w-4 h-4"></i> العودة لقائمة المرضى
+              </button>
+            </div>
+
+            <div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-3 py-1 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-full text-xs font-black tracking-wider flex items-center gap-1">
+                    كود: <b id="p-header-code">---</b>
+                  </span>
+                  <span id="p-header-visits-count" class="px-2.5 py-1 bg-white/10 text-slate-200 rounded-full text-xs font-bold">
+                    0 زيارة
+                  </span>
+                </div>
+                <h2 id="p-header-name" class="text-2xl sm:text-3xl font-black text-white mb-2 tracking-tight">
+                  ---
+                </h2>
+                <div class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+                  <span class="flex items-center gap-1.5"><i data-lucide="phone" class="w-4 h-4 text-teal-400"></i> <span id="p-header-phone">---</span></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-teal-400"></i> <span id="p-header-age">---</span></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="user" class="w-4 h-4 text-teal-400"></i> <span id="p-header-sex">---</span></span>
+                  <span class="flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4 text-teal-400"></i> <span id="p-header-address">---</span></span>
+                </div>
+              </div>
+
+              <!-- Top Actions on Patient -->
+              <div class="flex items-center gap-2">
+                <button onclick="openUploadModal()" class="px-3 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow transition-all">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i> شيت جديد للمريض
+                </button>
+                <button onclick="deleteCurrentPatient()" title="حذف المريض" class="p-2 bg-white/10 hover:bg-rose-600/80 text-white rounded-xl text-xs transition-all">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Diagnosis Banner -->
+            <div class="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 text-xs">
+              <span class="text-teal-400 font-bold flex items-center gap-1"><i data-lucide="stethoscope" class="w-4 h-4"></i> التشخيص:</span>
+              <span id="p-header-diagnosis" class="font-bold text-white bg-white/10 px-3 py-1 rounded-lg">---</span>
+            </div>
+          </div>
+
+          <!-- TABS NAVIGATION BAR -->
+          <div class="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <button onclick="switchTab('timeline')" data-tab="timeline" class="patient-tab-btn active px-4 py-2.5 rounded-xl font-bold text-sm bg-teal-600 text-white shadow-sm flex items-center gap-2 transition-all">
+              <i data-lucide="clock" class="w-4 h-4"></i>
+              <span>شريط الزيارات</span>
+            </button>
+            <button onclick="switchTab('initial_history')" data-tab="initial_history" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+              <span>شيت الكشف الأولي</span>
+            </button>
+            <button onclick="switchTab('joint_map')" data-tab="joint_map" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
+              <i data-lucide="person-standing" class="w-4 h-4"></i>
+              <span>مخطط المفاصل</span>
+            </button>
+            <button onclick="switchTab('labs_tracker')" data-tab="labs_tracker" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
+              <i data-lucide="flask-conical" class="w-4 h-4"></i>
+              <span>تتبع التحاليل (21 تحليل)</span>
+            </button>
+            <button onclick="switchTab('gallery')" data-tab="gallery" class="patient-tab-btn px-4 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:text-teal-700 hover:bg-teal-50/50 flex items-center gap-2 transition-all">
+              <i data-lucide="images" class="w-4 h-4"></i>
+              <span>الشيتات الأصلية</span>
+            </button>
+          </div>
+
+          <!-- TAB CONTENT CONTAINER -->
+          <div id="tab-content-area" class="min-h-[400px]">
+            <!-- Rendered by app.js -->
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. UPLOAD & AI EXTRACTION MODAL (SIDE-BY-SIDE REVIEW) -->
+  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base sm:text-lg">تصوير ورفع الشيت وتحويله بالذكاء الاصطناعي</h3>
+            <p class="text-xs text-slate-400">قراءة خط يد الطبيب وتفريغ الحقول تلقائياً بدقة مجاناً 100%</p>
+          </div>
+        </div>
+        <button onclick="closeUploadModal()" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-200/60">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 sm:p-6 overflow-y-auto flex-1">
+        
+        <!-- STEP 1: UPLOAD / CAMERA -->
+        <div id="upload-step-1" class="space-y-5">
+          <!-- In-App Live Camera Viewfinder (Zero Crash, Instant Capture) -->
+          <div id="live-camera-container" class="hidden relative bg-slate-950 rounded-3xl overflow-hidden border border-slate-700 shadow-xl">
+            <video id="live-camera-video" autoplay playsinline class="w-full max-h-[50vh] sm:max-h-[55vh] object-cover bg-black"></video>
+            
+            <!-- Live Camera Overlay Toolbar -->
+            <div class="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-6 px-4 z-10">
+              <!-- Close Live Camera -->
+              <button type="button" onclick="stopLiveCamera()" title="إغلاق الكاميرا" class="p-3 bg-black/60 hover:bg-black/80 text-white rounded-full backdrop-blur-md transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+              </button>
+              
+              <!-- Big Central Shutter Button -->
+              <button type="button" onclick="captureFromLiveCamera()" title="التقاط الصفحة الآن" class="w-16 h-16 rounded-full bg-white text-teal-700 flex items-center justify-center shadow-2xl active:scale-90 transition-transform border-4 border-teal-500 ring-4 ring-white/30">
+                <i data-lucide="camera" class="w-8 h-8"></i>
+              </button>
+              
+              <!-- Switch Camera Facing -->
+              <button type="button" onclick="switchLiveCameraFacing()" title="تبديل الكاميرا" class="p-3 bg-black/60 hover:bg-black/80 text-white rounded-full backdrop-blur-md transition-all">
+                <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+              </button>
+            </div>
+
+            <!-- Viewfinder Guide Box -->
+            <div class="absolute inset-5 border-2 border-dashed border-white/40 pointer-events-none rounded-2xl flex items-start justify-center pt-2">
+              <span class="px-3 py-1 bg-black/60 text-white text-[11px] font-bold rounded-full backdrop-blur-sm">
+                وجّه الكاميرا نحو الشيت واضغط ⚪ للتصوير
+              </span>
+            </div>
+          </div>
+          <div id="live-camera-error" class="hidden p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold"></div>
+
+          <!-- Mobile Specific Upload Quick Buttons (Very visible & comfortable on mobile) -->
+          <div class="grid grid-cols-2 gap-3 sm:hidden">
+            <button type="button" onclick="startLiveCamera()" class="p-4 bg-gradient-to-r from-teal-600 to-emerald-600 active:scale-95 text-white rounded-2xl font-bold flex flex-col items-center justify-center gap-1.5 shadow-md transition-all">
+              <i data-lucide="video" class="w-6 h-6"></i>
+              <span class="text-xs font-black">فتح الكاميرا المباشرة</span>
+            </button>
+            <button type="button" onclick="document.getElementById('mobile-gallery-input').click()" class="p-4 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 rounded-2xl font-bold flex flex-col items-center justify-center gap-1.5 border border-slate-200 transition-all">
+              <i data-lucide="images" class="w-6 h-6 text-teal-600"></i>
+              <span class="text-xs font-black">اختيار من المعرض</span>
+            </button>
+          </div>
+
+          <!-- Dropzone (Shown on Desktop & Tablet) -->
+          <div id="upload-dropzone" class="hidden sm:block border-2 border-dashed border-teal-200 hover:border-teal-400 bg-teal-50/30 hover:bg-teal-50/60 rounded-3xl p-8 text-center transition-all cursor-pointer relative">
+            <input type="file" id="sheet-file-input" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="handleImageFiles(this.files)" />
+            
+            <div class="w-16 h-16 rounded-3xl bg-teal-100 text-teal-700 mx-auto mb-3 flex items-center justify-center">
+              <i data-lucide="camera" class="w-8 h-8"></i>
+            </div>
+            <h4 class="text-base font-bold text-slate-800 mb-1">اضغط للتصوير بالكاميرا أو اختيار صور الشيت</h4>
+            <p class="text-xs text-slate-500 max-w-md mx-auto mb-4">
+              يمكنك تصوير عدة صفحات (صفحة 1: البيانات والتاريخ المرضي، صفحة 2: الفحص والتحاليل، صفحة 3: المتابعة).
+            </p>
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold shadow-sm">
+              <i data-lucide="plus" class="w-4 h-4"></i> اختر الصور من الجهاز أو الموبايل
+            </div>
+          </div>
+
+          <!-- Pending Upload Thumbnails -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h5 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-4 h-4 text-teal-600"></i> الصفحات المختارة للرفع:
+              </h5>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="document.getElementById('mobile-camera-single-input').click()" class="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 transition-all">
+                  <i data-lucide="camera" class="w-3.5 h-3.5 text-teal-600"></i> تصوير صفحة أخرى
+                </button>
+                <button type="button" onclick="document.getElementById('mobile-gallery-input').click()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 transition-all">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> من المعرض
+                </button>
+              </div>
+            </div>
+            <div id="uploaded-preview-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Rendered by app.js -->
+            </div>
+          </div>
+
+          <!-- Assign to Patient Section -->
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+            <label class="font-bold text-slate-800 block flex items-center gap-1.5">
+              <i data-lucide="user-check" class="w-4 h-4 text-teal-600"></i> تخصيص الشيت لمريض (مهم للحفظ بدون إنترنت):
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-500 mb-1">اسم المريض:</label>
+                <input type="text" id="offline-sheet-name" placeholder="اسم المريض" class="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold" />
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1">كود المريض (NO.):</label>
+                <input type="text" id="offline-sheet-code" placeholder="مثال: 594" class="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold text-teal-900" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons: Offline Save vs Online AI Extraction -->
+          <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs text-slate-400">💡 يمكنك حفظ الصور محلياً الآن، وتفريغ نصوصها بالذكاء الاصطناعي في أي وقت لاحق عند توفر الإنترنت.</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Local Offline Save Button -->
+              <button id="btn-save-locally-offline" onclick="saveSheetLocallyOffline()" disabled class="px-4 sm:px-5 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-2xl shadow flex items-center gap-2 transition-all">
+                <i data-lucide="hard-drive-download" class="w-4 h-4 text-emerald-400"></i>
+                <span>حفظ الصور محلياً فقط (تفريغ لاحقاً)</span>
+              </button>
+
+              <!-- Online AI Extract Button -->
+              <button id="btn-run-ai-extract" onclick="runAIExtraction()" disabled class="px-4 sm:px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white text-xs sm:text-sm font-black rounded-2xl shadow-md flex items-center gap-2 transition-all">
+                <span id="ai-extract-spinner" class="hidden animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span>استخراج فوري بالذكاء الاصطناعي (أونلاين)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: SIDE-BY-SIDE REVIEW -->
+        <div id="upload-step-ai-preview" class="hidden space-y-4">
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-900 flex items-center justify-between">
+            <span>✨ تم استخراج البيانات بنجاح! راجع الصورة والحقول واعتمد الحفظ.</span>
+            <button onclick="document.getElementById('upload-step-1').classList.remove('hidden'); document.getElementById('upload-step-ai-preview').classList.add('hidden');" class="text-teal-700 underline font-semibold">
+              تغيير الصور
+            </button>
+          </div>
+
+          <!-- Mobile View Switcher between Extracted Form and Original Image -->
+          <div class="lg:hidden flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold gap-1">
+            <button type="button" id="ai-tab-btn-form" onclick="toggleMobileAIReviewView('form')" class="flex-1 py-2 rounded-xl bg-white text-teal-800 shadow-sm text-center transition-all">
+              📝 مراجعة الحقول المستخرجة
+            </button>
+            <button type="button" id="ai-tab-btn-image" onclick="toggleMobileAIReviewView('image')" class="flex-1 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-center transition-all">
+              🖼️ صورة الشيت الأصلية
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            
+            <!-- Left Sub-Column: Form Fields (7 Cols) -->
+            <div id="ai-review-form-col" class="block lg:col-span-7 space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">كود المريض (NO.):</label>
+                  <input type="text" id="ai-field-code" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-teal-900" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block font-bold text-slate-700 mb-1">اسم المريض:</label>
+                  <input type="text" id="ai-field-name" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">السن:</label>
+                  <input type="text" id="ai-field-age" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">الهاتف:</label>
+                  <input type="text" id="ai-field-phone" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">النوع:</label>
+                  <input type="text" id="ai-field-sex" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-slate-700 mb-1">العنوان:</label>
+                <input type="text" id="ai-field-address" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-teal-800 mb-1">التشخيص (Diagnosis):</label>
+                <input type="text" id="ai-field-diagnosis" class="w-full p-2 bg-teal-50/70 border border-teal-200 rounded-xl font-bold text-teal-950" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">G P L (الولادات):</label>
+                  <input type="text" id="ai-field-gpl" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">الدورة (Menses):</label>
+                  <input type="text" id="ai-field-menses" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">الحساسية (Allergy):</label>
+                  <input type="text" id="ai-field-allergy" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">العمليات (Operations):</label>
+                  <input type="text" id="ai-field-operations" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">العائلة (Family History):</label>
+                  <input type="text" id="ai-field-family" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">العلاج الحالي (Current TTT):</label>
+                  <input type="text" id="ai-field-current-ttt" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-slate-700 mb-1">الشكوى الرئيسية وتفاصيل الأعراض (Main Complaint):</label>
+                <textarea id="ai-field-complaint" rows="3" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs leading-relaxed"></textarea>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">ضغط الدم (BP):</label>
+                  <input type="text" id="ai-field-bp" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">فحص المفاصل (Exam Notes):</label>
+                  <input type="text" id="ai-field-exam" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-emerald-800 mb-1">العلاج الموصوف (Treatment / TTT):</label>
+                <textarea id="ai-field-ttt" rows="2" class="w-full p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl font-medium"></textarea>
+              </div>
+
+              <div class="text-xs">
+                <label class="block font-bold text-slate-700 mb-1">الخطة والتحاليل (Plan):</label>
+                <input type="text" id="ai-field-plan" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl" />
+              </div>
+            </div>
+
+            <!-- Right Sub-Column: Zoomable Sheet Image (5 Cols) -->
+            <div id="ai-review-image-col" class="hidden lg:flex lg:col-span-5 bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex-col h-[55vh] sm:h-[60vh]">
+              <div class="p-2 bg-white border-b border-slate-200 text-xs font-bold text-slate-600 flex items-center justify-between">
+                <span>معاينة الشيت الأصلي المرفوع:</span>
+                <span class="text-[10px] text-slate-400">انقر للتكبير</span>
+              </div>
+              <div class="flex-1 overflow-auto p-2 flex items-center justify-center cursor-zoom-in" onclick="openLightbox(document.getElementById('ai-preview-image').src)">
+                <img id="ai-preview-image" src="" class="max-w-full max-h-full object-contain rounded-lg shadow-sm" />
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Approval Button -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+            <button onclick="closeUploadModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">
+              إلغاء
+            </button>
+            <button onclick="approveAndSaveExtractedData()" class="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-black text-sm rounded-2xl shadow-md flex items-center gap-2 transition-all">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>اعتماد وحفظ بملف المريض</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. PRINT PRESCRIPTION / REPORT MODAL -->
+  <div id="print-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden text-right">
+      <!-- Toolbar (Hidden during print) -->
+      <div class="no-print p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <span class="font-bold text-slate-700 text-sm">معاينة الروشتة / التقرير الطبي للطباعة</span>
+        <div class="flex items-center gap-2">
+          <button onclick="triggerBrowserPrint()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="printer" class="w-4 h-4"></i> طباعة فورية (Print)
+          </button>
+          <button onclick="document.getElementById('print-modal').classList.add('hidden')" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable Paper Content (A5/A4 proportions) -->
+      <div id="print-paper-content" class="p-8 bg-white">
+        <!-- Rendered by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. MANUAL NEW PATIENT MODAL -->
+  <div id="new-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden text-right">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-black text-slate-900 text-base">إضافة مريض جديد يدوياً</h3>
+        <button onclick="document.getElementById('new-patient-modal').classList.add('hidden')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">كود المريض:</label>
+            <input type="text" id="manual-p-code" placeholder="مثال: 595" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">السن:</label>
+            <input type="text" id="manual-p-age" placeholder="مثال: 42" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">اسم المريض:</label>
+          <input type="text" id="manual-p-name" placeholder="الاسم ثلاثي أو رباعي" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">رقم الهاتف:</label>
+            <input type="text" id="manual-p-phone" placeholder="01xxxxxxxxx" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">النوع:</label>
+            <select id="manual-p-sex" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+              <option value="أنثى">أنثى</option>
+              <option value="ذكر">ذكر</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">العنوان:</label>
+          <input type="text" id="manual-p-address" placeholder="المدينة / الشارع" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">التشخيص (Diagnosis):</label>
+          <input type="text" id="manual-p-diagnosis" placeholder="الروماتويد، الذئبة الحمراء، بهجت..." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button onclick="document.getElementById('new-patient-modal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500">إلغاء</button>
+        <button onclick="saveManualNewPatient()" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ المريض</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3.1 EDIT PATIENT FULL MODAL -->
+  <div id="edit-patient-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-right">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-black text-slate-900 text-base">تعديل بيانات المريض والشيت الأولي</h3>
+        <button onclick="document.getElementById('edit-patient-modal').classList.add('hidden')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">كود المريض:</label>
+            <input type="text" id="edit-p-code" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-teal-900" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block font-bold text-slate-700 mb-1">اسم المريض:</label>
+            <input type="text" id="edit-p-name" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">السن:</label>
+            <input type="text" id="edit-p-age" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">الهاتف:</label>
+            <input type="text" id="edit-p-phone" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">النوع:</label>
+            <select id="edit-p-sex" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+              <option value="أنثى">أنثى</option>
+              <option value="ذكر">ذكر</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">العنوان:</label>
+          <input type="text" id="edit-p-address" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+        </div>
+
+        <div>
+          <label class="block font-bold text-teal-800 mb-1">التشخيص (Diagnosis):</label>
+          <input type="text" id="edit-p-diagnosis" class="w-full p-2.5 bg-teal-50/70 border border-teal-200 rounded-xl font-bold text-teal-950" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">المهنة:</label>
+            <input type="text" id="edit-p-occupation" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">الحالة والأبناء:</label>
+            <input type="text" id="edit-p-marital" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">G P L:</label>
+            <input type="text" id="edit-p-gpl" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">الدورة (Menses):</label>
+            <input type="text" id="edit-p-menses" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">التدخين:</label>
+            <input type="text" id="edit-p-smoking" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">الحساسية (Allergy):</label>
+            <input type="text" id="edit-p-allergy" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">العمليات (Operations):</label>
+            <input type="text" id="edit-p-operations" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">العائلة (Family History):</label>
+            <input type="text" id="edit-p-family" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">العلاج السابق (Current TTT):</label>
+            <input type="text" id="edit-p-current-ttt" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">الشكوى وتاريخ المرض بالتفصيل (Main Complaint):</label>
+          <textarea id="edit-p-complaint" rows="4" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl leading-relaxed"></textarea>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button onclick="document.getElementById('edit-patient-modal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500">إلغاء</button>
+        <button onclick="saveEditedPatient()" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ التعديلات</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. NEW VISIT MANUAL MODAL -->
+  <div id="new-visit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden text-right">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-black text-slate-900 text-base">تسجيل زيارة / متابعة جديدة</h3>
+        <button onclick="closeNewVisitModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">تاريخ الزيارة:</label>
+            <input type="date" id="nv-date" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">نوع الزيارة:</label>
+            <select id="nv-type" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
+              <option value="متابعة دورية (Follow-up)">متابعة دورية (Follow-up)</option>
+              <option value="استشارة وتحاليل">استشارة وتحاليل</option>
+              <option value="كشف جديد">كشف جديد</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">ضغط الدم (BP):</label>
+          <input type="text" id="nv-bp" placeholder="مثال: 120/80" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">الشكوى وتطور الحالة منذ آخر زيارة (History):</label>
+          <textarea id="nv-notes" rows="2" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">الفحص الإكلينيكي والمفاصل (Exam Notes):</label>
+          <textarea id="nv-exam" rows="2" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+        </div>
+        <div>
+          <label class="block font-bold text-emerald-800 mb-1">العلاج الموصوف (Treatment - TTT):</label>
+          <textarea id="nv-ttt" rows="2" class="w-full p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl font-medium"></textarea>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">الخطة والتحاليل المطلوبة (Plan):</label>
+          <input type="text" id="nv-plan" placeholder="فحوصات قادمة وموعد الإعادة" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button onclick="closeNewVisitModal()" class="px-4 py-2 text-xs font-bold text-slate-500">إلغاء</button>
+        <button onclick="saveNewVisitManual()" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">تسجيل الزيارة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. SETTINGS & BACKUP MODAL -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden text-right">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-black text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-teal-600"></i>
+          إعدادات النظام والنسخ الاحتياطي
+        </h3>
+        <button onclick="closeSettingsModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-6 text-xs">
+        
+        <!-- Gemini Vision API Key Box -->
+        <div class="p-4 bg-teal-50/70 border border-teal-200 rounded-2xl space-y-2">
+          <h4 class="font-bold text-teal-950 text-sm flex items-center gap-1.5">
+            <i data-lucide="key" class="w-4 h-4 text-teal-700"></i>
+            مفتاح الذكاء الاصطناعي (Google Gemini Free API Key)
+          </h4>
+          <p class="text-slate-600 leading-relaxed">
+            مطلوب لتشغيل ميزة قراءة خط اليد وتفريغ الشيتات تلقائياً. المفتاح <b>مجاني 100% مدى الحياة</b> من Google AI Studio بحد أقصى 1500 كشف يومياً.
+          </p>
+          <div class="pt-1">
+            <input type="password" id="setting-gemini-key" placeholder="AIzaSy..." class="w-full p-2.5 bg-white border border-teal-300 rounded-xl font-mono text-xs text-left" dir="ltr" />
+          </div>
+          <div id="gemini-key-status" class="hidden p-2 rounded-lg text-[11px] font-bold"></div>
+          <div class="pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-teal-800 font-bold underline flex items-center gap-1">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> الحصول على المفتاح المجاني من جوجل
+            </a>
+            <div class="flex items-center gap-2">
+              <button onclick="testAndDetectGeminiKey()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> فحص المفتاح والنماذج
+              </button>
+              <button onclick="saveSettings()" class="px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-bold">
+                حفظ المفتاح
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup & Restore -->
+        <div class="space-y-3">
+          <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+            <i data-lucide="database" class="w-4 h-4 text-teal-600"></i>
+            حفظ واسترجاع بيانات العيادة (Backup & Restore)
+          </h4>
+          <p class="text-slate-500">
+            تُحفظ كافة بيانات المرضى والصور بأمان على هذا الجهاز. يمكنك تنزيل نسخة احتياطية كاملة ونقلها إلى أي كمبيوتر آخر أو استعادتها في أي وقت.
+          </p>
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="exportBackupFile()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all">
+              <i data-lucide="download" class="w-4 h-4"></i> تنزيل نسخة احتياطية (JSON)
+            </button>
+            <label class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer flex items-center gap-2 border border-slate-200 transition-all">
+              <i data-lucide="upload" class="w-4 h-4"></i> استرجاع نسخة سابقة
+              <input type="file" accept=".json" class="hidden" onchange="importBackupFile(event)" />
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <button onclick="closeSettingsModal()" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 font-bold text-slate-700 rounded-xl text-xs">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. LIGHTBOX FULLSCREEN IMAGE MODAL -->
+  <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer" onclick="closeLightbox()">
+    <button onclick="closeLightbox()" class="absolute top-5 right-5 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full">
+      <i data-lucide="x" class="w-6 h-6"></i>
+    </button>
+    <img id="lightbox-img" src="" class="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl" onclick="event.stopPropagation()" />
+  </div>
+
+  <!-- 7. MOBILE CONNECT & QR CODE MODAL -->
+  <div id="mobile-connect-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeMobileConnectModal()">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden text-right" onclick="event.stopPropagation()">
+      <div class="p-5 bg-gradient-to-r from-teal-700 to-emerald-700 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-5 h-5"></i>
+          <h3 class="font-black text-base">تشغيل السيستم على الموبايل والتابلت</h3>
+        </div>
+        <button onclick="closeMobileConnectModal()" class="p-1.5 hover:bg-white/20 rounded-xl transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <div class="p-6 text-center space-y-4">
+        <p class="text-xs text-slate-600 leading-relaxed font-medium">
+          امسح كود الاستجابة السريعة (QR) بكاميرا الموبايل لفتح السيستم مباشرة، واستخدام الكاميرا لتصوير وتفريغ شيتات المرضى فوراً:
+        </p>
+        
+        <!-- QR Code Container -->
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-3xl inline-block shadow-inner">
+          <img id="mobile-qr-image" src="" alt="كود QR للموبايل" class="w-52 h-52 mx-auto rounded-2xl shadow-sm object-contain" />
+        </div>
+
+        <!-- Direct URL Box with 1-Click Copy -->
+        <div class="space-y-1.5 text-right">
+          <label class="text-[11px] font-bold text-slate-500">رابط الدخول المباشر:</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="mobile-direct-url-input" readonly class="flex-1 p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono text-xs text-left select-all text-teal-900 font-bold" dir="ltr" />
+            <button onclick="copyMobileUrl()" class="px-3.5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 shadow-sm transition-all">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> نسخ
+            </button>
+          </div>
+        </div>
+
+        <!-- Advantages Box -->
+        <div class="p-3.5 bg-teal-50/80 border border-teal-200/80 rounded-2xl text-[11px] text-right space-y-1.5">
+          <p class="font-bold text-teal-950 flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-teal-600"></i>
+            مميزات الاستخدام من الهاتف:
+          </p>
+          <ul class="list-disc list-inside space-y-1 text-slate-600">
+            <li>تصوير شيتات العيادة الورقية مباشرة بالكاميرا الخلفية.</li>
+            <li>حفظ الصور على الموبايل حتى بدون إنترنت (Offline).</li>
+            <li>تفريغ فوري لخط اليد بالذكاء الاصطناعي بضغطة زر.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <button onclick="closeMobileConnectModal()" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 font-bold text-slate-700 rounded-xl text-xs transition-all">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional script helper for manual new patient modal -->
+  <script>
+    function openManualNewPatientModal() {
+      document.getElementById('manual-p-code').value = 'RH-' + (state.patients.length + 101);
+      document.getElementById('manual-p-name').value = '';
+      document.getElementById('manual-p-age').value = '';
+      document.getElementById('manual-p-phone').value = '';
+      document.getElementById('manual-p-address').value = '';
+      document.getElementById('manual-p-diagnosis').value = '';
+      document.getElementById('new-patient-modal').classList.remove('hidden');
+    }
+
+    async function saveManualNewPatient() {
+      const name = document.getElementById('manual-p-name').value.trim();
+      if (!name) {
+        showToast('يرجى كتابة اسم المريض', 'warning');
+        return;
+      }
+
+      const patient = {
+        id: 'patient_' + Date.now(),
+        code: document.getElementById('manual-p-code').value.trim() || `RH-${Date.now().toString().slice(-4)}`,
+        name: name,
+        age: document.getElementById('manual-p-age').value.trim(),
+        phone: document.getElementById('manual-p-phone').value.trim(),
+        sex: document.getElementById('manual-p-sex').value,
+        address: document.getElementById('manual-p-address').value.trim(),
+        diagnosis: document.getElementById('manual-p-diagnosis').value.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      await window.clinicDB.savePatient(patient);
+      await loadPatients();
+      await selectPatient(patient.id);
+      document.getElementById('new-patient-modal').classList.add('hidden');
+      showToast('تمت إضافة المريض بنجاح', 'success');
+    }
+  </script>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR (FIXED) -->
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-5 py-2.5 flex items-center justify-around shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
+    <!-- Patients List Tab -->
+    <button onclick="showMobileView('patients')" id="nav-btn-patients" class="flex flex-col items-center gap-1 text-teal-700 text-[11px] font-black transition-all">
+      <i data-lucide="users" class="w-5 h-5"></i>
+      <span>المرضى</span>
+    </button>
+    
+    <!-- Central Camera FAB -->
+    <button onclick="triggerDirectMobileCamera()" title="تصوير شيت فوري بالكاميرا" class="-mt-7 w-14 h-14 rounded-full bg-gradient-to-tr from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 text-white flex items-center justify-center shadow-xl active:scale-95 transition-all border-4 border-white">
+      <i data-lucide="camera" class="w-7 h-7"></i>
+    </button>
+
+    <!-- Patient Profile Tab -->
+    <button onclick="showMobileView('profile')" id="nav-btn-profile" class="flex flex-col items-center gap-1 text-slate-400 hover:text-teal-700 text-[11px] font-bold transition-all">
+      <i data-lucide="user" class="w-5 h-5"></i>
+      <span>الملف الطبي</span>
+    </button>
+
+    <!-- Settings Tab -->
+    <button onclick="openSettingsModal()" class="flex flex-col items-center gap-1 text-slate-400 hover:text-teal-700 text-[11px] font-bold transition-all">
+      <i data-lucide="settings" class="w-5 h-5"></i>
+      <span>الإعدادات</span>
+    </button>
+  </nav>
+
+  <!-- Safe Mobile Camera Input (Single photo capture, strictly NO multiple to avoid mobile OS memory eviction & crashes) -->
+  <input type="file" id="mobile-camera-single-input" accept="image/*" capture="environment" class="hidden" onchange="handleDirectCameraCapture(this.files)" />
+
+  <!-- Mobile Gallery / Multi-photo Input (Allows selecting multiple photos from device library) -->
+  <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="js/db.js?v=3"></script>
+  <script src="js/joint-map.js?v=3"></script>
+  <script src="js/gemini.js?v=3"></script>
+  <script src="js/seed-data.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
+  <script src="js/sync.js?v=1"></script>
+
+</body>
+</html>
