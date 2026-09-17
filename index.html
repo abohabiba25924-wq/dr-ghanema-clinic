@@ -996,6 +996,9 @@
       };
 
       await window.clinicDB.savePatient(patient);
+      if (window.clinicSync && typeof window.clinicSync.pushPatient === 'function') {
+        window.clinicSync.pushPatient(patient).catch(console.warn);
+      }
       await loadPatients();
       await selectPatient(patient.id);
       document.getElementById('new-patient-modal').classList.add('hidden');
@@ -1036,12 +1039,12 @@
   <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
 
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=4"></script>
-  <script src="js/sync.js?v=4"></script>
-  <script src="js/joint-map.js?v=4"></script>
-  <script src="js/gemini.js?v=4"></script>
-  <script src="js/seed-data.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/db.js?v=5"></script>
+  <script src="js/sync.js?v=5"></script>
+  <script src="js/joint-map.js?v=5"></script>
+  <script src="js/gemini.js?v=5"></script>
+  <script src="js/seed-data.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 
 </body>
 </html>

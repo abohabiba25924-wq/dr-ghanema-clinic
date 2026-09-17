@@ -1,20 +1,20 @@
-/**
+﻿/**
  * sw.js - Service Worker for Dr. Mahmoud Ghanema Clinic PWA
  * Enables 100% offline access, fast loading, and asset caching
  */
 
-const CACHE_NAME = 'ghanema-clinic-v2';
+const CACHE_NAME = 'ghanema-clinic-v3';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.json',
   'assets/doctor_logo.png',
-  'js/db.js?v=3',
-  'js/joint-map.js?v=3',
-  'js/gemini.js?v=3',
-  'js/seed-data.js?v=3',
-  'js/app.js?v=3',
-  'js/sync.js?v=4',
+  'js/db.js?v=5',
+  'js/sync.js?v=5',
+  'js/joint-map.js?v=5',
+  'js/gemini.js?v=5',
+  'js/seed-data.js?v=5',
+  'js/app.js?v=5',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
@@ -26,14 +26,14 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Some non-critical assets failed to cache:', err);
+        console.warn('Non-critical asset cache warning:', err);
       });
     })
   );
   self.skipWaiting();
 });
 
-// Activate Event: Clear old cache versions
+// Activate Event: Clear all old cache versions immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -45,47 +45,49 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event: Cache-First for local assets, Network-First for Gemini AI API
+// Fetch Event:
+// 1. Network-Only for Gemini AI & Supabase APIs
+// 2. Network-First for HTML navigation (ensures updates load instantly)
+// 3. Stale-While-Revalidate for cached assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Gemini API and Supabase calls must always bypass cache and go directly to network
+  // Gemini API and Supabase calls bypass cache directly
   if ((url.hostname.includes('googleapis.com') && url.pathname.includes('models')) || url.hostname.includes('supabase.co')) {
     event.respondWith(fetch(event.request));
     return;
   }
 
+  // HTML Navigation: Network-First with Cache Fallback
+  if (event.request.mode === 'navigate' || (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((res) => res || caches.match('index.html'));
+        })
+    );
+    return;
+  }
+
+  // Static Assets: Stale-While-Revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch update in background (Stale-While-Revalidate)
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => { /* Offline, ignore */ });
-
-        return cachedResponse;
-      }
-
-      // If not cached, fetch from network and cache
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
         return networkResponse;
-      }).catch(() => {
-        // If offline and requesting an HTML page, return cached index.html
-        if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
-          return caches.match('index.html');
-        }
-      });
+      }).catch(() => { /* Offline fallback */ });
+
+      return cachedResponse || fetchPromise;
     })
   );
 });

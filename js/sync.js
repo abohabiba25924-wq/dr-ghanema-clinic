@@ -124,13 +124,13 @@ class ClinicSyncEngine {
 
     if (state === 'syncing') {
       badge.className = 'cursor-pointer px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all';
-      badge.innerHTML = <span class="w-2 h-2 rounded-full bg-amber-500 animate-spin"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-amber-800 hidden sm:inline">\</span>;
+      badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-spin"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-amber-800 hidden sm:inline">' + (text || 'جاري المزامنة...') + '</span>';
     } else if (state === 'synced') {
       badge.className = 'cursor-pointer px-2.5 py-1 bg-teal-50 border border-teal-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all hover:bg-teal-100';
-      badge.innerHTML = <span class="w-2 h-2 rounded-full bg-teal-500"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-teal-800 hidden sm:inline">\</span>;
+      badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-teal-500"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-teal-800 hidden sm:inline">' + (text || 'سحابي متزامن') + '</span>';
     } else if (state === 'error') {
       badge.className = 'cursor-pointer px-2.5 py-1 bg-rose-50 border border-rose-200 rounded-full flex items-center gap-1.5 shadow-sm transition-all';
-      badge.innerHTML = <span class="w-2 h-2 rounded-full bg-rose-500"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-rose-800 hidden sm:inline">\</span>;
+      badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span id="cloud-sync-text" class="text-[11px] font-bold text-rose-800 hidden sm:inline">' + (text || 'مزامنة معطلة') + '</span>';
     }
   }
 
@@ -360,17 +360,11 @@ function updateNetworkStatus() {
   if (!indicatorEl) return;
 
   if (isOnline) {
-    indicatorEl.innerHTML = 
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span class="text-[11px] font-bold text-emerald-800 hidden sm:inline">أونلاين (متصل)</span>
-    ;
+    indicatorEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span class="text-[11px] font-bold text-emerald-800 hidden sm:inline">أونلاين (متصل)</span>';
     indicatorEl.className = 'px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-sm';
     indicatorEl.title = 'متصل بالإنترنت - ميزة تفريغ الذكاء الاصطناعي نشطة';
   } else {
-    indicatorEl.innerHTML = 
-      <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-      <span class="text-[11px] font-bold text-amber-800 hidden sm:inline">أوفلاين (محلي)</span>
-    ;
+    indicatorEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="text-[11px] font-bold text-amber-800 hidden sm:inline">أوفلاين (محلي)</span>';
     indicatorEl.className = 'px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full flex items-center gap-1.5 shadow-sm';
     indicatorEl.title = 'يعمل محلياً بدون إنترنت - كافة السجلات محفوظة في الجهاز بأمان';
   }

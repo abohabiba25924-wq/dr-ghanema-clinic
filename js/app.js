@@ -47,6 +47,14 @@ async function loadPatients(query = '') {
   updateHeaderStats();
 }
 
+// Expose globals for sync.js and external triggers
+window.state = state;
+window.loadPatients = loadPatients;
+window.renderPatientsList = renderPatientsList;
+window.renderCurrentTab = renderCurrentTab;
+window.renderPatientHeader = renderPatientHeader;
+window.selectPatient = selectPatient;
+
 function updateHeaderStats() {
   const totalCountEl = document.getElementById('stat-total-patients');
   if (totalCountEl) totalCountEl.textContent = state.patients.length;
