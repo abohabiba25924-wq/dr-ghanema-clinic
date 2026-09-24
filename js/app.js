@@ -139,13 +139,42 @@ function renderPatientsList() {
   if (!container) return;
 
   if (state.patients.length === 0) {
-    container.innerHTML = `
-      <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <i data-lucide="user-x" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
-        <p class="font-medium text-slate-600">لا يوجد مرضى مطابقين للبحث</p>
-        <p class="text-xs text-slate-400 mt-1">اضغط على زر "مريض جديد" أو ارفع شيت ورقي لإضافة مريض</p>
-      </div>
-    `;
+    const searchVal = (document.getElementById('global-search-input')?.value || document.getElementById('mobile-search-input')?.value || '').trim();
+    if (searchVal) {
+      container.innerHTML = `
+        <div class="p-6 text-center text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-2">
+          <i data-lucide="search-x" class="w-10 h-10 mx-auto text-slate-300"></i>
+          <p class="font-bold text-slate-700 text-sm">لا يوجد مريض مطابق لـ "${escapeHtml(searchVal)}"</p>
+          <p class="text-xs text-slate-400">تأكد من كتابة الاسم أو الكود أو الهاتف بشكل صحيح</p>
+          <button onclick="clearSearch()" class="mt-2 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-all">
+            ✕ مسح البحث
+          </button>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="p-5 text-center text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 mx-auto flex items-center justify-center">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="font-bold text-slate-800 text-sm">سجل المرضى فارغ حالياً</p>
+            <p class="text-xs text-slate-400 mt-0.5">يمكنك إضافة مريض جديد أو تصوير شيت ورقي فوراً</p>
+          </div>
+          <div class="pt-2 flex flex-col gap-2">
+            <button onclick="openManualNewPatientModal()" class="w-full py-2.5 px-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 transition-all">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> إضافة مريض جديد الآن
+            </button>
+            <button onclick="openUploadModal()" class="w-full py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+              <i data-lucide="camera" class="w-4 h-4 text-teal-600"></i> تصوير ورفع شيت ورقي
+            </button>
+            <button onclick="reseedSamplePatient()" class="pt-1 text-[11px] text-teal-600 hover:text-teal-800 font-semibold hover:underline">
+              🔄 استعادة مريض تجريبي (فاطمة إسماعيل - كود 594)
+            </button>
+          </div>
+        </div>
+      `;
+    }
     if (window.lucide) lucide.createIcons();
     return;
   }
@@ -2111,15 +2140,31 @@ function toggleMobileAIReviewView(mode) {
 let activeServerUrls = null;
 
 async function fetchActiveUrls() {
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && !window.location.hostname.startsWith('192.168.')) {
+    return;
+  }
   try {
     const res = await fetch('active-urls.json?t=' + Date.now());
     if (res.ok) {
       activeServerUrls = await res.json();
     }
   } catch (e) {
-    console.warn('Could not fetch active-urls.json:', e);
+    // silently ignore on production/github pages
   }
 }
+
+async function reseedSamplePatient() {
+  showToast('جاري استعادة ملف المريض والشيتات...', 'info');
+  if (typeof window.seedSamplePatientNow === 'function') {
+    await window.seedSamplePatientNow(true);
+    await loadPatients();
+    if (state.patients.length > 0) {
+      selectPatient(state.patients[0].id);
+    }
+    showToast('✅ تم استعادة بيانات المريض والشيت بنجاح ومزامنته سحابياً!', 'success');
+  }
+}
+window.reseedSamplePatient = reseedSamplePatient;
 
 async function openMobileConnectModal() {
   const modal = document.getElementById('mobile-connect-modal');

@@ -6,9 +6,13 @@
 const SEED_PATIENT_ID = 'patient_sample_594';
 
 async function checkAndSeedInitialData() {
+  return seedSamplePatientNow(false);
+}
+
+async function seedSamplePatientNow(force = false) {
   const existing = await window.clinicDB.getAllPatients();
-  if (existing && existing.length > 0) {
-    return; // Already initialized
+  if (!force && existing && existing.length > 0) {
+    return false; // Already initialized
   }
 
   // Initial Patient Data from Image 1 & 2
@@ -96,7 +100,16 @@ async function checkAndSeedInitialData() {
 
   await window.clinicDB.savePatient(samplePatient);
   await window.clinicDB.saveVisit(visit1);
+
+  // Push to cloud
+  if (window.clinicSync && typeof window.clinicSync.pushPatient === 'function') {
+    window.clinicSync.pushPatient(samplePatient).catch(console.warn);
+    window.clinicSync.pushVisit(visit1).catch(console.warn);
+  }
+
   console.log('Sample clinic patient seeded successfully.');
+  return true;
 }
 
 window.checkAndSeedInitialData = checkAndSeedInitialData;
+window.seedSamplePatientNow = seedSamplePatientNow;
