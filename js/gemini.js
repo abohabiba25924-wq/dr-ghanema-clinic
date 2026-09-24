@@ -7,15 +7,15 @@ class GeminiMedicalExtractor {
   constructor() {
     this.apiKey = null;
     this.activeModel = null;
-    this.activeApiVersion = 'v1';
+    this.activeApiVersion = 'v1beta';
     this.fallbackModels = [
+      'gemini-3.6-flash',
       'gemini-2.0-flash',
-      'gemini-2.5-flash',
-      'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
-      'gemini-2.0-flash-001',
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-pro'
+      'gemini-3.1-pro-preview',
+      'gemini-1.5-pro',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-flash-8b'
     ];
   }
 
@@ -29,6 +29,69 @@ class GeminiMedicalExtractor {
     this.apiKey = key.trim();
     this.activeModel = null;
     return window.clinicDB.setSetting('gemini_api_key', this.apiKey);
+  }
+
+  /**
+   * Filters out non-vision, audio, TTS, and discontinued models,
+   * then ranks remaining models according to Google's multimodal speed & quality recommendations.
+   */
+  filterAndRankModels(rawList) {
+    if (!Array.isArray(rawList)) return [...this.fallbackModels];
+
+    const names = rawList.map(m => {
+      const str = (typeof m === 'string') ? m : (m.name || '');
+      return str.replace(/^models\//, '');
+    });
+
+    // 1. Exclude non-multimodal, text-to-speech, embedding, or discontinued models
+    const filtered = names.filter(name => {
+      const n = name.toLowerCase();
+      // Drop audio, speech, embeddings, imagen, aqa, and text-only gemma
+      if (n.includes('tts') || n.includes('embedding') || n.includes('imagen') || 
+          n.includes('aqa') || n.includes('audio') || n.includes('gemma')) {
+        return false;
+      }
+      // Drop discontinued models that Google stopped serving to new users
+      if (n === 'gemini-2.5-flash' || n === 'gemini-2.5-pro') {
+        return false;
+      }
+      return true;
+    });
+
+    // 2. Rank models according to Google's vision performance hierarchy
+    const getScore = (n) => {
+      const lower = n.toLowerCase();
+      if (lower.includes('3.6-flash')) return 100;
+      if (lower.includes('2.0-flash') && !lower.includes('lite')) return 95;
+      if (lower.includes('1.5-flash') && !lower.includes('8b')) return 90;
+      if (lower.includes('3.1-pro')) return 85;
+      if (lower.includes('1.5-pro')) return 80;
+      if (lower.includes('2.0-flash-lite')) return 75;
+      if (lower.includes('1.5-flash-8b')) return 70;
+      if (lower.includes('flash')) return 60;
+      if (lower.includes('pro')) return 50;
+      return 10;
+    };
+
+    filtered.sort((a, b) => getScore(b) - getScore(a));
+
+    // 3. Ensure top standard models are always present in the pool
+    const deduplicated = [];
+    
+    // Put current activeModel first if valid
+    if (this.activeModel && !this.activeModel.includes('tts') && 
+        this.activeModel !== 'gemini-2.5-flash' && this.activeModel !== 'gemini-2.5-pro') {
+      deduplicated.push(this.activeModel);
+    }
+
+    for (const item of [...filtered, ...this.fallbackModels]) {
+      if (!deduplicated.includes(item)) {
+        deduplicated.push(item);
+      }
+    }
+
+    // Limit to top 5 candidates to guarantee blazing-fast response without slow sequential loops
+    return deduplicated.slice(0, 5);
   }
 
   /**
@@ -53,7 +116,7 @@ class GeminiMedicalExtractor {
           );
           if (supported.length > 0) {
             this.activeApiVersion = ep.ver;
-            return supported;
+            return this.filterAndRankModels(supported);
           }
         } else if (data && data.error) {
           lastApiError = data.error.message || `HTTP ${res.status}`;
@@ -70,41 +133,32 @@ class GeminiMedicalExtractor {
         throw new Error(`خطأ في صلاحية مفتاح جوجل: ${lastApiError}`);
       }
     }
-    return [];
+    return [...this.fallbackModels];
   }
 
   /**
    * Determine best available model for content generation
    */
   async resolveWorkingModel(key) {
-    // Check cached working model
+    // Check cached working model (validate it's not a discontinued or TTS model)
     const saved = await window.clinicDB.getSetting('gemini_working_model', null);
-    if (saved) {
+    if (saved && !saved.includes('tts') && saved !== 'gemini-2.5-flash' && saved !== 'gemini-2.5-pro') {
       this.activeModel = saved;
       return saved;
+    } else if (saved) {
+      // Clear deprecated cached model
+      await window.clinicDB.setSetting('gemini_working_model', null);
     }
 
-    // Query ListModels from Google
+    // Query ListModels and filter/rank models
     const models = await this.listSupportedModels(key);
-    if (models.length > 0) {
-      const preferred = 
-        models.find(m => m.name.includes('2.0-flash')) ||
-        models.find(m => m.name.includes('2.5-flash')) ||
-        models.find(m => m.name.includes('flash-latest')) ||
-        models.find(m => m.name.includes('1.5-flash')) ||
-        models.find(m => m.name.includes('flash')) ||
-        models[0];
+    const ranked = this.filterAndRankModels(models);
 
-      if (preferred) {
-        const clean = preferred.name.replace(/^models\//, '');
-        this.activeModel = clean;
-        await window.clinicDB.setSetting('gemini_working_model', clean);
-        return clean;
-      }
-    }
-
-    this.activeModel = this.fallbackModels[0];
-    return this.activeModel;
+    const best = ranked[0] || 'gemini-3.6-flash';
+    this.activeModel = best;
+    this.activeApiVersion = 'v1beta';
+    await window.clinicDB.setSetting('gemini_working_model', best);
+    return best;
   }
 
   /**
@@ -115,7 +169,7 @@ class GeminiMedicalExtractor {
   }
 
   /**
-   * Extract medical data from sheet images with smart multi-version fallback (v1 and v1beta)
+   * Extract medical data from sheet images with smart multi-version fallback (v1beta and v1)
    */
   async extractSheetData(images) {
     const key = await this.getApiKey();
@@ -123,20 +177,25 @@ class GeminiMedicalExtractor {
       throw new Error('لم يتم إدخال مفتاح Google Gemini API. يرجى إدخال المفتاح في شاشة الإعدادات أولاً (المفتاح مجاني 100%).');
     }
 
-    // Attempt model discovery
+    // Clear any obsolete cached model like gemini-2.5-flash
+    const cachedModel = await window.clinicDB.getSetting('gemini_working_model', null);
+    if (cachedModel === 'gemini-2.5-flash' || cachedModel === 'gemini-2.5-pro' || (cachedModel && cachedModel.includes('tts'))) {
+      await window.clinicDB.setSetting('gemini_working_model', null);
+      this.activeModel = null;
+    }
+
+    // Attempt model discovery & prioritized ranking
     let candidateList = [];
     try {
       const discovered = await this.listSupportedModels(key);
-      if (discovered.length > 0) {
-        candidateList = discovered.map(m => m.name.replace(/^models\//, ''));
-      }
+      candidateList = this.filterAndRankModels(discovered);
     } catch (discoveryErr) {
       console.warn('Discovery error:', discoveryErr);
-      throw discoveryErr;
+      candidateList = [...this.fallbackModels];
     }
 
-    if (candidateList.length === 0) {
-      candidateList = this.fallbackModels;
+    if (!candidateList || candidateList.length === 0) {
+      candidateList = [...this.fallbackModels];
     }
 
     const prompt = `
@@ -269,18 +328,37 @@ If any field is not present or illegible, leave it as an empty string "". Never 
     let lastError = null;
     const versionsToTry = ['v1beta', 'v1'];
 
-    // Try each model across both v1beta and v1
+    // Try each candidate model
     for (const modelName of candidateList) {
       for (const ver of versionsToTry) {
         const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelName}:generateContent?key=${key}`;
         console.log(`[Gemini Request] Trying: ${ver} / ${modelName}`);
 
         try {
-          const response = await fetch(endpoint, {
+          let response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
+
+          // If 400 Bad Request, retry without responseMimeType in case model doesn't support json mode
+          if (!response.ok && response.status === 400) {
+            const fallbackPayload = {
+              contents: [{ parts }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 2500
+              }
+            };
+            const retryRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fallbackPayload)
+            });
+            if (retryRes.ok) {
+              response = retryRes;
+            }
+          }
 
           if (response.ok) {
             const resJson = await response.json();
@@ -291,7 +369,10 @@ If any field is not present or illegible, leave it as an empty string "". Never 
               await window.clinicDB.setSetting('gemini_working_model', modelName);
               console.log(`[Gemini Success] Active Model: ${ver} / ${modelName}`);
 
-              const cleaned = rawText.trim().replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+              const cleaned = rawText.trim()
+                .replace(/^```json\s*/i, '')
+                .replace(/^```\s*/i, '')
+                .replace(/\s*```$/, '');
               return JSON.parse(cleaned);
             }
           } else {
@@ -303,6 +384,11 @@ If any field is not present or illegible, leave it as an empty string "". Never 
             // If it's a hard API key error (e.g. invalid key or blocked), stop and report immediately
             if (errMsg.includes('API key not valid') || errMsg.includes('PERMISSION_DENIED')) {
               throw new Error(`مفتاح API غير صالح أو غير مصرح له: ${errMsg}`);
+            }
+
+            // If model is discontinued or not found, skip trying it on other API versions
+            if (errMsg.includes('no longer available') || errMsg.includes('not found') || errMsg.includes('is not supported')) {
+              break;
             }
           }
         } catch (fetchErr) {

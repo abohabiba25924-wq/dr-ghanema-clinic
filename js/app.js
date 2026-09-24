@@ -2251,20 +2251,30 @@ async function testAndDetectGeminiKey() {
   statusEl.innerHTML = '<span class="inline-block animate-spin ml-1">⏳</span> جاري فحص المفتاح واكتشاف النماذج المدعومة من Google...';
 
   try {
-    const models = await window.geminiExtractor.listSupportedModels(key);
-    if (models.length > 0) {
-      // Clear old model cache so we get fresh one
-      await window.clinicDB.setSetting('gemini_working_model', null);
-      const best = await window.geminiExtractor.resolveWorkingModel(key);
-      await window.clinicDB.setSetting('gemini_api_key', key);
-      window.geminiExtractor.apiKey = key;
+    // Clear old model cache so we get fresh one
+    await window.clinicDB.setSetting('gemini_working_model', null);
+    window.geminiExtractor.activeModel = null;
+    const best = await window.geminiExtractor.resolveWorkingModel(key);
+    await window.clinicDB.setSetting('gemini_api_key', key);
+    window.geminiExtractor.apiKey = key;
 
+    // Quick verification ping
+    const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${best}:generateContent?key=${key}`;
+    const pingRes = await fetch(testEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] })
+    });
+
+    if (pingRes.ok) {
       statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 block';
-      statusEl.innerHTML = `✅ متصل بنجاح! تم العثور على (${models.length}) نماذج.<br>النموذج المعتمد للتفريغ: <b dir="ltr" class="font-mono text-emerald-950">${best}</b>`;
-      showToast('تم تفعيل واكتشاف النموذج بنجاح!', 'success');
+      statusEl.innerHTML = `✅ متصل بنجاح ومختبر تماماً!<br>النموذج المعتمد للتفريغ: <b dir="ltr" class="font-mono text-emerald-950">${best}</b>`;
+      showToast('تم فحص المفتاح والتأكد من استجابة الذكاء الاصطناعي بنجاح!', 'success');
     } else {
+      const errData = await pingRes.json().catch(() => ({}));
+      const msg = errData.error?.message || `HTTP ${pingRes.status}`;
       statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 block';
-      statusEl.textContent = '⚠️ لم يتم استرجاع القائمة عبر ListModels، تم تجهيز قائمة النماذج البديلة (Gemini 2.0 / 2.5 Flash).';
+      statusEl.innerHTML = `⚠️ تم اختيار النموذج (${best})، تنبيه: ${escapeHtml(msg)}`;
     }
   } catch (err) {
     statusEl.className = 'p-2.5 rounded-xl text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300 block';
