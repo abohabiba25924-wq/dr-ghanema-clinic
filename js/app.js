@@ -13,6 +13,11 @@ let state = {
   extractedData: null
 };
 
+// Top-level camera & connection state
+var liveCameraStream = null;
+var currentFacingMode = 'environment'; // default to rear camera
+var activeServerUrls = null;
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -117,7 +122,7 @@ window.testAndDetectGeminiKey = testAndDetectGeminiKey;
 window.saveSettings = saveSettings;
 window.exportBackupFile = exportBackupFile;
 window.importBackupFile = importBackupFile;
-window.handleBackupFileInput = handleBackupFileInput;
+window.handleBackupFileInput = importBackupFile;
 window.reseedSamplePatient = reseedSamplePatient;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
@@ -1164,9 +1169,6 @@ function renderAIAccordionContent(v) {
 }
 
 // --- In-App Live Camera Engine (WebRTC - Zero Crash, Native Stream) ---
-let liveCameraStream = null;
-let currentFacingMode = 'environment'; // default to rear camera
-
 async function startLiveCamera() {
   const videoEl = document.getElementById('live-camera-video');
   const container = document.getElementById('live-camera-container');
@@ -1181,7 +1183,7 @@ async function startLiveCamera() {
 
     const constraints = {
       video: {
-        facingMode: { ideal: currentFacingMode },
+        facingMode: { ideal: currentFacingMode || 'environment' },
         width: { ideal: 1920 },
         height: { ideal: 1080 }
       },
@@ -1209,7 +1211,7 @@ async function startLiveCamera() {
 }
 
 function stopLiveCamera() {
-  if (liveCameraStream) {
+  if (typeof liveCameraStream !== 'undefined' && liveCameraStream) {
     try {
       liveCameraStream.getTracks().forEach(t => t.stop());
     } catch { }
@@ -2149,8 +2151,6 @@ function toggleMobileAIReviewView(mode) {
 }
 
 // --- Mobile Connect & QR Code Integration ---
-let activeServerUrls = null;
-
 async function fetchActiveUrls() {
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && !window.location.hostname.startsWith('192.168.')) {
     return;
