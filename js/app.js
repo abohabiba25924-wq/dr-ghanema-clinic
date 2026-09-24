@@ -406,16 +406,8 @@ function renderCurrentTab() {
     case 'timeline':
       renderTimelineTab(container);
       break;
-    case 'initial_history':
-      renderInitialHistoryTab(container);
-      break;
-    case 'joint_map':
-      renderJointMapTab(container);
-      break;
-    case 'labs_tracker':
-      renderLabsTrackerTab(container);
-      break;
     case 'gallery':
+    default:
       renderGalleryTab(container);
       break;
   }

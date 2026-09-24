@@ -3,19 +3,18 @@
  * Enables 100% offline access, fast loading, and asset caching
  */
 
-const CACHE_NAME = 'ghanema-clinic-v10';
+const CACHE_NAME = 'ghanema-clinic-v11';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.json',
   'assets/doctor_logo.png',
-  'js/db.js?v=10',
-  'js/auth.js?v=10',
-  'js/sync.js?v=10',
-  'js/joint-map.js?v=10',
-  'js/gemini.js?v=10',
-  'js/seed-data.js?v=10',
-  'js/app.js?v=10',
+  'js/db.js?v=11',
+  'js/auth.js?v=11',
+  'js/sync.js?v=11',
+  'js/gemini.js?v=11',
+  'js/seed-data.js?v=11',
+  'js/app.js?v=11',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
