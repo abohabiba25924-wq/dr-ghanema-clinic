@@ -1,4 +1,4 @@
-﻿/**
+/**
  * sync.js - Realtime Cloud Sync Engine (Supabase) & PWA Installation Manager
  * Dr. Mahmoud Ghanema Clinic Management System
  */
@@ -14,10 +14,10 @@ function patientToDb(p) {
     name: p.name || '',
     age: p.age ? String(p.age) : '',
     phone: p.phone ? String(p.phone) : '',
-    sex: p.sex || 'female',
+    sex: p.sex || 'أنثى',
     address: p.address || '',
     diagnosis: p.diagnosis || '',
-    obs_gyn: p.obsGyn || p.obs_gyn || '',
+    obs_gyn: p.obsGyn || p.obs_gyn || p.gpl || '',
     history_complaint: p.historyComplaint || p.history_complaint || p.mainComplaint || '',
     family_history: p.familyHistory || p.family_history || '',
     surgical_history: p.surgicalHistory || p.surgical_history || p.operations || '',
@@ -37,30 +37,38 @@ function dbToPatient(r) {
     sex: r.sex,
     address: r.address,
     diagnosis: r.diagnosis,
-    obsGyn: r.obs_gyn,
-    historyComplaint: r.history_complaint,
-    familyHistory: r.family_history,
-    surgicalHistory: r.surgical_history,
-    currentMeds: r.current_meds,
+    obsGyn: r.obs_gyn || '',
+    gpl: r.obs_gyn || '',
+    historyComplaint: r.history_complaint || '',
+    mainComplaint: r.history_complaint || '',
+    familyHistory: r.family_history || '',
+    surgicalHistory: r.surgical_history || '',
+    operations: r.surgical_history || '',
+    currentMeds: r.current_meds || '',
+    currentTTT: r.current_meds || '',
     createdAt: r.created_at,
     updatedAt: r.updated_at
   };
 }
 
 function visitToDb(v) {
+  const images = v.images || v.sheetImages || v.sheet_images || [];
+  const vitalsObj = { ...(v.vitals || {}) };
+  if (v.type) vitalsObj.visitType = v.type;
+
   return {
     id: v.id,
     patient_id: v.patientId || v.patient_id,
     date: v.date || new Date().toISOString().split('T')[0],
-    vitals: v.vitals || {},
+    vitals: vitalsObj,
     history: v.history || '',
-    exam: v.exam || '',
+    exam: v.exam || v.examNotes || '',
     diagnosis: v.diagnosis || '',
-    ttt: v.ttt || '',
+    ttt: v.ttt || v.treatment || '',
     plan: v.plan || '',
-    joints: v.joints || { tender: [], swollen: [], both: [] },
+    joints: v.joints || v.jointStates || { tender: [], swollen: [], both: [] },
     labs: v.labs || {},
-    sheet_images: v.sheetImages || v.sheet_images || [],
+    sheet_images: images,
     ai_processed: !!v.aiProcessed || !!v.ai_processed,
     raw_ai_text: v.rawAiText || v.raw_ai_text || '',
     created_at: v.createdAt || v.created_at || new Date().toISOString(),
@@ -69,19 +77,27 @@ function visitToDb(v) {
 }
 
 function dbToVisit(r) {
+  const imgs = r.sheet_images || r.images || [];
+  const visitType = (r.vitals && r.vitals.visitType) ? r.vitals.visitType : (r.type || 'كشف جديد');
+
   return {
     id: r.id,
     patientId: r.patient_id,
     date: r.date,
+    type: visitType,
     vitals: r.vitals || {},
     history: r.history || '',
     exam: r.exam || '',
+    examNotes: r.exam || '',
     diagnosis: r.diagnosis || '',
     ttt: r.ttt || '',
+    treatment: r.ttt || '',
     plan: r.plan || '',
     joints: r.joints || { tender: [], swollen: [], both: [] },
+    jointStates: (r.joints && !Array.isArray(r.joints)) ? r.joints : {},
     labs: r.labs || {},
-    sheetImages: r.sheet_images || [],
+    images: imgs,
+    sheetImages: imgs,
     aiProcessed: !!r.ai_processed,
     rawAiText: r.raw_ai_text || '',
     createdAt: r.created_at,
@@ -262,11 +278,18 @@ class ClinicSyncEngine {
     this.channel = this.supabase.channel('clinic-realtime-room')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clinic_patients' }, async (payload) => {
         console.log('⚡ Realtime Event (clinic_patients):', payload.eventType);
-        if (payload.eventType === 'DELETE' && payload.old) {
+        if (payload.eventType === 'DELETE' && payload.old && payload.old.id) {
           await window.clinicDB.deletePatient(payload.old.id, false);
-        } else if (payload.new) {
+          if (window.state && window.state.currentPatient && window.state.currentPatient.id === payload.old.id) {
+            window.state.currentPatient = null;
+          }
+        } else if (payload.new && payload.new.id) {
           const patient = dbToPatient(payload.new);
           await window.clinicDB.savePatient(patient, false);
+          if (window.state && window.state.currentPatient && window.state.currentPatient.id === patient.id) {
+            window.state.currentPatient = patient;
+            if (typeof window.renderPatientHeader === 'function') window.renderPatientHeader();
+          }
         }
         if (typeof window.loadPatients === 'function') await window.loadPatients();
         if (typeof window.showToast === 'function') {
@@ -275,17 +298,23 @@ class ClinicSyncEngine {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clinic_visits' }, async (payload) => {
         console.log('⚡ Realtime Event (clinic_visits):', payload.eventType);
-        if (payload.eventType === 'DELETE' && payload.old) {
+        if (payload.eventType === 'DELETE' && payload.old && payload.old.id) {
           await window.clinicDB.deleteVisit(payload.old.id, false);
-        } else if (payload.new) {
+        } else if (payload.new && payload.new.id) {
           const visit = dbToVisit(payload.new);
           await window.clinicDB.saveVisit(visit, false);
         }
-        if (window.state && window.state.selectedPatient && payload.new && window.state.selectedPatient.id === payload.new.patient_id) {
-          if (typeof window.renderVisitsTimeline === 'function') await window.renderVisitsTimeline();
-          if (typeof window.renderLabsTable === 'function') await window.renderLabsTable();
+        const activePatient = window.state && (window.state.currentPatient || window.state.selectedPatient);
+        const affectedPatientId = (payload.new && (payload.new.patient_id || payload.new.patientId)) || (payload.old && (payload.old.patient_id || payload.old.patientId));
+        if (activePatient && (!affectedPatientId || activePatient.id === affectedPatientId)) {
+          if (typeof window.clinicDB.getVisitsByPatient === 'function') {
+            window.state.currentVisits = await window.clinicDB.getVisitsByPatient(activePatient.id);
+          }
+          if (typeof window.renderVisitsDatesBar === 'function') window.renderVisitsDatesBar();
+          if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
+          if (typeof window.renderPatientHeader === 'function') window.renderPatientHeader();
           if (typeof window.showToast === 'function') {
-            window.showToast('⚡ تم تحديث كشوفات المريض لحظياً', 'info');
+            window.showToast('⚡ تم تحديث شيتات وكشوفات المريض لحظياً', 'info');
           }
         }
       })
@@ -324,14 +353,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
   const installBtn = document.getElementById('btn-pwa-install');
   if (installBtn) {
     installBtn.classList.remove('hidden');
-    installBtn.classList.add('flex');
+    installBtn.classList.add('flex', 'max-md:hidden');
   }
 });
 
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
   const installBtn = document.getElementById('btn-pwa-install');
-  if (installBtn) installBtn.classList.add('hidden');
+  if (installBtn) {
+    installBtn.classList.add('hidden');
+    installBtn.classList.remove('flex', 'max-md:hidden');
+  }
   if (typeof window.showToast === 'function') {
     window.showToast('🎉 تم تثبيت تطبيق العيادة بنجاح على جهازك!', 'success');
   }
@@ -350,7 +382,10 @@ async function triggerPWAInstall() {
   if (outcome === 'accepted') {
     deferredInstallPrompt = null;
     const installBtn = document.getElementById('btn-pwa-install');
-    if (installBtn) installBtn.classList.add('hidden');
+    if (installBtn) {
+      installBtn.classList.add('hidden');
+      installBtn.classList.remove('flex', 'max-md:hidden');
+    }
   }
 }
 

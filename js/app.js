@@ -106,6 +106,19 @@ window.closeUploadModal = closeUploadModal;
 window.saveSheetDirectly = saveSheetDirectly;
 window.openManualNewPatientModal = openManualNewPatientModal;
 window.saveManualNewPatient = saveManualNewPatient;
+window.openEditPatientModal = openEditPatientModal;
+window.saveEditedPatient = saveEditedPatient;
+window.deleteCurrentPatient = deleteCurrentPatient;
+window.deleteVisitConfirm = deleteVisitConfirm;
+window.openNewVisitModal = openNewVisitModal;
+window.closeNewVisitModal = closeNewVisitModal;
+window.saveNewVisitManual = saveNewVisitManual;
+window.testAndDetectGeminiKey = testAndDetectGeminiKey;
+window.saveSettings = saveSettings;
+window.exportBackupFile = exportBackupFile;
+window.importBackupFile = importBackupFile;
+window.handleBackupFileInput = handleBackupFileInput;
+window.reseedSamplePatient = reseedSamplePatient;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.prefillLogin = prefillLogin;
@@ -127,6 +140,10 @@ window.handleDirectCameraCapture = handleDirectCameraCapture;
 window.openMobileConnectModal = openMobileConnectModal;
 window.closeMobileConnectModal = closeMobileConnectModal;
 window.copyMobileUrl = copyMobileUrl;
+window.showToast = showToast;
+window.formatDate = formatDate;
+window.escapeHtml = escapeHtml;
+
 
 function updateHeaderStats() {
   const totalCountEl = document.getElementById('stat-total-patients');
@@ -353,6 +370,7 @@ function renderVisitsDatesBar() {
   });
 
   container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
 }
 
 function filterByVisit(visitId) {
@@ -989,7 +1007,8 @@ async function toggleAIAccordion(visitId) {
       name: `sheet_page_${i + 1}.jpg`
     }));
 
-    const extracted = await window.geminiExtractor.extractFromImages(formattedImages);
+    const extractFn = (window.geminiExtractor.extractSheetData || window.geminiExtractor.extractFromImages);
+    const extracted = await extractFn.call(window.geminiExtractor, formattedImages);
     v.extractedData = extracted;
     v.aiProcessed = true;
 
@@ -1595,13 +1614,14 @@ async function saveManualNewPatient() {
 
   await window.clinicDB.savePatient(newPatient);
 
-  if (window.clinicSync && typeof window.clinicSync.syncAll === 'function') {
-    window.clinicSync.syncAll().catch(console.warn);
+  if (window.clinicSync && typeof window.clinicSync.pushPatient === 'function') {
+    window.clinicSync.pushPatient(newPatient).catch(console.warn);
   }
 
   const modal = document.getElementById('new-patient-modal');
   if (modal) modal.classList.add('hidden');
 
+  clearSearch();
   await loadPatients();
   await selectPatient(newPatient.id);
   showToast(`✅ تم إضافة ملف المريض "${name}" بنجاح`, 'success');
@@ -1999,14 +2019,6 @@ async function deleteVisitConfirm(visitId) {
 
 // --- Event Listeners Helper ---
 function setupEventListeners() {
-  // Global Search input
-  const searchInput = document.getElementById('global-search-input');
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      loadPatients(e.target.value);
-    });
-  }
-
   // Drag and drop for upload zone
   const dropZone = document.getElementById('upload-dropzone');
   if (dropZone) {

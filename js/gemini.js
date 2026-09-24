@@ -108,6 +108,13 @@ class GeminiMedicalExtractor {
   }
 
   /**
+   * Alias for extractSheetData to support both naming conventions
+   */
+  async extractFromImages(images) {
+    return this.extractSheetData(images);
+  }
+
+  /**
    * Extract medical data from sheet images with smart multi-version fallback (v1 and v1beta)
    */
   async extractSheetData(images) {
@@ -215,10 +222,37 @@ If any field is not present or illegible, leave it as an empty string "". Never 
     const parts = [{ text: prompt }];
 
     for (const img of images) {
+      let base64Data = img.data || '';
+      let mime = img.mimeType || 'image/jpeg';
+
+      // If img.data is a relative path or remote URL, fetch and convert to base64
+      if (typeof base64Data === 'string' && !base64Data.startsWith('data:image/')) {
+        try {
+          const res = await fetch(base64Data);
+          const blob = await res.blob();
+          base64Data = await new Promise((resFn, rejFn) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resFn(reader.result);
+            reader.onerror = rejFn;
+            reader.readAsDataURL(blob);
+          });
+        } catch (fetchErr) {
+          console.warn('Could not convert image path to base64:', base64Data, fetchErr);
+        }
+      }
+
+      if (typeof base64Data === 'string') {
+        const match = base64Data.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
+        if (match) {
+          mime = match[1];
+          base64Data = base64Data.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+        }
+      }
+
       parts.push({
         inline_data: {
-          mime_type: img.mimeType || 'image/jpeg',
-          data: img.data.replace(/^data:image\/\w+;base64,/, '')
+          mime_type: mime,
+          data: base64Data
         }
       });
     }

@@ -559,6 +559,7 @@
             <span>حفظ الشيت في ملف المريض</span>
           </button>
         </div>
+      </div>
     </div>
   </div>
 
@@ -1016,47 +1017,6 @@
     </div>
   </div>
 
-  <!-- Additional script helper for manual new patient modal -->
-  <script>
-    function openManualNewPatientModal() {
-      document.getElementById('manual-p-code').value = 'RH-' + (state.patients.length + 101);
-      document.getElementById('manual-p-name').value = '';
-      document.getElementById('manual-p-age').value = '';
-      document.getElementById('manual-p-phone').value = '';
-      document.getElementById('manual-p-address').value = '';
-      document.getElementById('manual-p-diagnosis').value = '';
-      document.getElementById('new-patient-modal').classList.remove('hidden');
-    }
-
-    async function saveManualNewPatient() {
-      const name = document.getElementById('manual-p-name').value.trim();
-      if (!name) {
-        showToast('يرجى كتابة اسم المريض', 'warning');
-        return;
-      }
-
-      const patient = {
-        id: 'patient_' + Date.now(),
-        code: document.getElementById('manual-p-code').value.trim() || `RH-${Date.now().toString().slice(-4)}`,
-        name: name,
-        age: document.getElementById('manual-p-age').value.trim(),
-        phone: document.getElementById('manual-p-phone').value.trim(),
-        sex: document.getElementById('manual-p-sex').value,
-        address: document.getElementById('manual-p-address').value.trim(),
-        diagnosis: document.getElementById('manual-p-diagnosis').value.trim(),
-        createdAt: new Date().toISOString()
-      };
-
-      await window.clinicDB.savePatient(patient);
-      if (window.clinicSync && typeof window.clinicSync.pushPatient === 'function') {
-        window.clinicSync.pushPatient(patient).catch(console.warn);
-      }
-      await loadPatients();
-      await selectPatient(patient.id);
-      document.getElementById('new-patient-modal').classList.add('hidden');
-      showToast('تمت إضافة المريض بنجاح', 'success');
-    }
-  </script>
 
   <!-- MOBILE BOTTOM NAVIGATION BAR (FIXED) -->
   <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-5 py-2.5 flex items-center justify-around shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
@@ -1091,13 +1051,13 @@
   <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
 
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=8"></script>
-  <script src="js/auth.js?v=8"></script>
-  <script src="js/sync.js?v=8"></script>
-  <script src="js/joint-map.js?v=8"></script>
-  <script src="js/gemini.js?v=8"></script>
-  <script src="js/seed-data.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/db.js?v=9"></script>
+  <script src="js/auth.js?v=9"></script>
+  <script src="js/sync.js?v=9"></script>
+  <script src="js/joint-map.js?v=9"></script>
+  <script src="js/gemini.js?v=9"></script>
+  <script src="js/seed-data.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 
 </body>
 </html>
