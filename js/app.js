@@ -18,6 +18,13 @@ var liveCameraStream = null;
 var currentFacingMode = 'environment'; // default to rear camera
 var activeServerUrls = null;
 
+// Lightbox & Edit Visit state
+var currentLightboxImages = [];
+var currentLightboxIndex = 0;
+var currentLightboxVisitId = null;
+var editVisitState = { visitId: null, images: [] };
+var targetVisitForDirectPhotoAdd = null;
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -133,6 +140,20 @@ window.saveDoctorAccountSettings = saveDoctorAccountSettings;
 window.saveModeratorAccountSettings = saveModeratorAccountSettings;
 window.openLightbox = openLightbox;
 window.closeLightbox = closeLightbox;
+window.openLightboxFromVisit = openLightboxFromVisit;
+window.nextLightboxImage = nextLightboxImage;
+window.prevLightboxImage = prevLightboxImage;
+window.setLightboxIndex = setLightboxIndex;
+window.downloadLightboxImage = downloadLightboxImage;
+window.openEditVisitModal = openEditVisitModal;
+window.closeEditVisitModal = closeEditVisitModal;
+window.saveEditedVisit = saveEditedVisit;
+window.deleteVisitConfirmFromEditModal = deleteVisitConfirmFromEditModal;
+window.handleEditVisitPhotoUpload = handleEditVisitPhotoUpload;
+window.removeEditVisitPhoto = removeEditVisitPhoto;
+window.addPhotoToVisitDirect = addPhotoToVisitDirect;
+window.handleDirectVisitPhotoSelected = handleDirectVisitPhotoSelected;
+window.deletePhotoFromVisit = deletePhotoFromVisit;
 window.printVisitReport = printVisitReport;
 window.triggerBrowserPrint = triggerBrowserPrint;
 window.startLiveCamera = startLiveCamera;
@@ -467,6 +488,9 @@ function renderTimelineTab(container) {
                 </span>
               </div>
               <div class="flex flex-wrap items-center gap-2">
+                <button onclick="openEditVisitModal('${v.id}')" class="px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-teal-800 hover:bg-teal-50 border border-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-all shadow-sm" title="تعديل الشيت والزيارة وإضافة/حذف صور">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5 text-teal-600"></i> تعديل
+                </button>
                 ${v.images && v.images.length > 0 ? `
                   <button onclick="runAILaterForVisit('${v.id}')" class="px-3 py-1 text-xs font-bold text-amber-900 hover:text-white bg-amber-100 hover:bg-amber-600 border border-amber-300 rounded-xl inline-flex items-center gap-1.5 transition-all shadow-sm">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-700"></i> تفريغ الشيت بالذكاء الاصطناعي (متوفر نت)
@@ -540,7 +564,7 @@ function renderTimelineTab(container) {
                   </h5>
                   <div class="flex flex-wrap gap-2">
                     ${v.images.map((imgSrc, imgIdx) => `
-                      <div onclick="openLightbox('${imgSrc}')" class="relative group w-20 h-24 rounded-xl border border-slate-200 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-teal-500 transition-all">
+                      <div onclick="openLightboxFromVisit('${v.id}', ${imgIdx})" class="relative group w-20 h-24 rounded-xl border border-slate-200 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-teal-500 transition-all">
                         <img src="${imgSrc}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                         <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                           <i data-lucide="zoom-in" class="w-4 h-4"></i>
@@ -891,6 +915,10 @@ function renderGalleryTab(container) {
               <!-- Actions on this visit -->
               <div class="flex items-center gap-2">
                 ${!isMod ? `
+                  <button onclick="openEditVisitModal('${v.id}')" class="px-3 py-1.5 bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all border border-slate-200 shadow-sm" title="تعديل الشيت والزيارة وإضافة/حذف صور">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5 text-teal-600"></i>
+                    <span>تعديل</span>
+                  </button>
                   <button onclick="toggleAIAccordion('${v.id}')" id="btn-ai-toggle-${v.id}" class="px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
                     hasAI 
                       ? 'bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200' 
@@ -924,21 +952,33 @@ function renderGalleryTab(container) {
                     </div>
                   `;
                 }
-                // Doctor: Full Thumbnail with Lightbox Zoom
+                // Doctor: Full Thumbnail with Lightbox Carousel Zoom & Quick Delete
                 return `
-                  <div onclick="openLightbox('${imgSrc}')" class="group relative bg-slate-50 border border-slate-200 hover:border-teal-400 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all">
-                    <div class="h-64 sm:h-72 overflow-hidden bg-slate-100 flex items-center justify-center p-1">
+                  <div onclick="openLightboxFromVisit('${v.id}', ${imgIdx})" class="group relative bg-slate-50 border border-slate-200 hover:border-teal-400 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all">
+                    <div class="h-64 sm:h-72 overflow-hidden bg-slate-100 flex items-center justify-center p-1 relative">
                       <img src="${imgSrc}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                      <button type="button" onclick="event.stopPropagation(); deletePhotoFromVisit('${v.id}', ${imgIdx})" title="حذف هذه الصفحة من الشيت" class="absolute top-2 left-2 p-1.5 bg-white/90 hover:bg-rose-600 text-slate-500 hover:text-white rounded-xl shadow-md transition-all sm:opacity-0 group-hover:opacity-100 z-10">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
                     </div>
                     <div class="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span class="font-bold text-slate-700">صفحة ${imgIdx + 1}</span>
+                      <span class="font-bold text-slate-700">صفحة ${imgIdx + 1} من ${v.images.length}</span>
                       <span class="text-[11px] font-semibold text-teal-700 flex items-center gap-1">
-                        <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> انقر للتكبير
+                        <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> تكبير وتقليب
                       </span>
                     </div>
                   </div>
                 `;
               }).join('')}
+              ${!isMod ? `
+                <div onclick="addPhotoToVisitDirect('${v.id}')" class="border-2 border-dashed border-slate-200 hover:border-teal-500 hover:bg-teal-50/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[16rem] group">
+                  <div class="w-12 h-12 rounded-2xl bg-teal-50 group-hover:bg-teal-100 text-teal-600 flex items-center justify-center mb-3 transition-colors shadow-sm">
+                    <i data-lucide="plus" class="w-6 h-6"></i>
+                  </div>
+                  <span class="font-bold text-xs text-slate-700 group-hover:text-teal-900">إضافة صفحة أخرى للشيت</span>
+                  <span class="text-[11px] text-slate-400 mt-1">تصوير أو رفع ورقة إضافية</span>
+                </div>
+              ` : ''}
             </div>
 
             <!-- On-Demand AI Extraction Accordion (Directly under the sheet) -->
@@ -1754,16 +1794,399 @@ function triggerBrowserPrint() {
   window.print();
 }
 
-// --- Lightbox Image Zoom ---
-function openLightbox(src) {
+// --- Enhanced Lightbox Carousel (Flip between photos, keyboard, touch swipe) ---
+function openLightbox(src, images, initialIndex) {
   const lb = document.getElementById('lightbox-modal');
   const img = document.getElementById('lightbox-img');
-  img.src = src;
+  if (!lb || !img) return;
+
+  if (Array.isArray(images) && images.length > 0) {
+    currentLightboxImages = images;
+    currentLightboxIndex = (typeof initialIndex === 'number' && initialIndex >= 0 && initialIndex < images.length) ? initialIndex : 0;
+  } else {
+    currentLightboxImages = src ? [src] : [];
+    currentLightboxIndex = 0;
+  }
+
+  updateLightboxView();
   lb.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function openLightboxFromVisit(visitId, imgIndex) {
+  currentLightboxVisitId = visitId;
+  const v = state.currentVisits ? state.currentVisits.find(item => item.id === visitId) : null;
+  if (v && v.images && v.images.length > 0) {
+    openLightbox(v.images[imgIndex || 0], v.images, imgIndex || 0);
+  } else if (imgIndex && typeof imgIndex === 'string') {
+    openLightbox(imgIndex, [imgIndex], 0);
+  }
+}
+
+function updateLightboxView() {
+  const lb = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  const counter = document.getElementById('lightbox-counter');
+  const thumbsContainer = document.getElementById('lightbox-thumbs');
+  const prevBtn = document.getElementById('lightbox-prev-btn');
+  const nextBtn = document.getElementById('lightbox-next-btn');
+
+  if (!img || !currentLightboxImages.length) return;
+
+  // Make sure index is within bounds
+  if (currentLightboxIndex < 0) currentLightboxIndex = 0;
+  if (currentLightboxIndex >= currentLightboxImages.length) currentLightboxIndex = currentLightboxImages.length - 1;
+
+  const currentSrc = currentLightboxImages[currentLightboxIndex];
+  img.src = currentSrc;
+
+  // Update page counter
+  if (counter) {
+    counter.textContent = `صفحة ${currentLightboxIndex + 1} من ${currentLightboxImages.length}`;
+  }
+
+  // Toggle arrow buttons visibility if only 1 image
+  const hasMultiple = currentLightboxImages.length > 1;
+  if (prevBtn) prevBtn.style.display = hasMultiple ? 'flex' : 'none';
+  if (nextBtn) nextBtn.style.display = hasMultiple ? 'flex' : 'none';
+
+  // Render mini thumbnails at bottom
+  if (thumbsContainer) {
+    if (!hasMultiple) {
+      thumbsContainer.innerHTML = '';
+      thumbsContainer.classList.add('hidden');
+    } else {
+      thumbsContainer.classList.remove('hidden');
+      thumbsContainer.innerHTML = currentLightboxImages.map((tSrc, idx) => {
+        const isActive = idx === currentLightboxIndex;
+        return `
+          <button type="button" onclick="setLightboxIndex(${idx})" class="w-12 h-14 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+            isActive ? 'border-teal-400 ring-2 ring-teal-400 scale-105 opacity-100' : 'border-white/30 opacity-60 hover:opacity-100'
+          }">
+            <img src="${tSrc}" class="w-full h-full object-cover" />
+          </button>
+        `;
+      }).join('');
+    }
+  }
+}
+
+function nextLightboxImage() {
+  if (!currentLightboxImages || currentLightboxImages.length <= 1) return;
+  currentLightboxIndex = (currentLightboxIndex + 1) % currentLightboxImages.length;
+  updateLightboxView();
+}
+
+function prevLightboxImage() {
+  if (!currentLightboxImages || currentLightboxImages.length <= 1) return;
+  currentLightboxIndex = (currentLightboxIndex - 1 + currentLightboxImages.length) % currentLightboxImages.length;
+  updateLightboxView();
+}
+
+function setLightboxIndex(idx) {
+  if (idx >= 0 && idx < currentLightboxImages.length) {
+    currentLightboxIndex = idx;
+    updateLightboxView();
+  }
 }
 
 function closeLightbox() {
-  document.getElementById('lightbox-modal').classList.add('hidden');
+  const lb = document.getElementById('lightbox-modal');
+  if (lb) lb.classList.add('hidden');
+  currentLightboxImages = [];
+  currentLightboxIndex = 0;
+  currentLightboxVisitId = null;
+}
+
+function downloadLightboxImage() {
+  if (!currentLightboxImages || !currentLightboxImages.length) return;
+  const currentSrc = currentLightboxImages[currentLightboxIndex];
+  if (!currentSrc) return;
+  const a = document.createElement('a');
+  a.href = currentSrc;
+  a.download = `patient-sheet-page-${currentLightboxIndex + 1}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Lightbox Keyboard and Touch Swipe Listeners
+(function setupLightboxGestures() {
+  // Keyboard: Arrow keys (in RTL Arabic: ArrowRight = previous page, ArrowLeft = next page) and Escape
+  window.addEventListener('keydown', (e) => {
+    const lb = document.getElementById('lightbox-modal');
+    if (!lb || lb.classList.contains('hidden')) return;
+
+    if (e.key === 'Escape') {
+      closeLightbox();
+    } else if (e.key === 'ArrowRight') {
+      prevLightboxImage();
+    } else if (e.key === 'ArrowLeft') {
+      nextLightboxImage();
+    }
+  });
+
+  // Touch Swipe for mobile devices
+  let touchStartX = 0;
+  let touchEndX = 0;
+  window.addEventListener('DOMContentLoaded', () => {
+    const lb = document.getElementById('lightbox-modal');
+    if (lb) {
+      lb.addEventListener('touchstart', (e) => {
+        if (e.changedTouches && e.changedTouches[0]) {
+          touchStartX = e.changedTouches[0].screenX;
+        }
+      }, { passive: true });
+
+      lb.addEventListener('touchend', (e) => {
+        if (e.changedTouches && e.changedTouches[0]) {
+          touchEndX = e.changedTouches[0].screenX;
+          const diff = touchEndX - touchStartX;
+          if (Math.abs(diff) > 40) {
+            if (diff > 0) {
+              // Swiped right (in RTL: previous)
+              prevLightboxImage();
+            } else {
+              // Swiped left (in RTL: next)
+              nextLightboxImage();
+            }
+          }
+        }
+      }, { passive: true });
+    }
+  });
+})();
+
+// --- Edit Visit & Sheets Management (Modify type, date, add/remove photos, clinical notes) ---
+function openEditVisitModal(visitId) {
+  const v = state.currentVisits ? state.currentVisits.find(item => item.id === visitId) : null;
+  if (!v) {
+    showToast('تعذر العثور على بيانات الزيارة المطلوبة', 'warning');
+    return;
+  }
+
+  editVisitState.visitId = v.id;
+  editVisitState.images = Array.isArray(v.images) ? [...v.images] : [];
+
+  const visitIdEl = document.getElementById('ev-visit-id');
+  if (visitIdEl) visitIdEl.value = v.id;
+
+  // Visit Type: كشف جديد vs استشارة ومتابعة
+  const isConsultation = v.type && v.type.includes('استشارة');
+  const typeKashf = document.getElementById('ev-type-kashf');
+  const typeEsteshara = document.getElementById('ev-type-esteshara');
+  if (typeKashf && typeEsteshara) {
+    typeKashf.checked = !isConsultation;
+    typeEsteshara.checked = isConsultation;
+  }
+
+  // Visit Date
+  const dateEl = document.getElementById('ev-date');
+  if (dateEl) {
+    dateEl.value = v.date ? v.date.split('T')[0] : new Date().toISOString().split('T')[0];
+  }
+
+  // Clinical notes
+  const diagEl = document.getElementById('ev-diagnosis');
+  const tttEl = document.getElementById('ev-ttt');
+  const examEl = document.getElementById('ev-exam');
+
+  if (diagEl) diagEl.value = v.diagnosis || (v.extractedData && v.extractedData.diagnosis) || (state.currentPatient && state.currentPatient.diagnosis) || '';
+  if (tttEl) tttEl.value = v.treatment || v.ttt || (v.extractedData && v.extractedData.treatment) || '';
+  if (examEl) examEl.value = v.examinationNotes || v.examNotes || v.notes || (v.extractedData && v.extractedData.clinicalNotes) || '';
+
+  renderEditVisitPhotosGrid();
+
+  const modal = document.getElementById('edit-visit-modal');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeEditVisitModal() {
+  const modal = document.getElementById('edit-visit-modal');
+  if (modal) modal.classList.add('hidden');
+  editVisitState = { visitId: null, images: [] };
+}
+
+function renderEditVisitPhotosGrid() {
+  const container = document.getElementById('ev-photos-grid');
+  if (!container) return;
+
+  if (!editVisitState.images || editVisitState.images.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-4 text-center text-slate-400 border border-dashed border-slate-300 rounded-xl bg-white">
+        <p class="font-bold text-xs text-slate-600">لا توجد صور حالياً في هذا الشيت</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">يمكنك إضافة صور جديدة من زري "تصوير صفحة" أو "رفع من الجهاز" بالأعلى</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = editVisitState.images.map((imgSrc, idx) => `
+    <div class="relative group h-28 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+      <img src="${imgSrc}" class="w-full h-full object-cover" />
+      <button type="button" onclick="removeEditVisitPhoto(${idx})" title="حذف هذه الصفحة" class="absolute top-1.5 left-1.5 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-md transition-all">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+      <span class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded font-bold">
+        صفحة ${idx + 1}
+      </span>
+    </div>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function removeEditVisitPhoto(idx) {
+  if (idx >= 0 && idx < editVisitState.images.length) {
+    editVisitState.images.splice(idx, 1);
+    renderEditVisitPhotosGrid();
+  }
+}
+
+async function handleEditVisitPhotoUpload(files) {
+  if (!files || !files.length) return;
+  showToast('جارٍ معالجة وضغط الصور المضافة...', 'info');
+
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const res = await compressImage(files[i], 1600, 0.82);
+      if (res && res.data) {
+        editVisitState.images.push(res.data);
+      }
+    } catch (err) {
+      console.error('Error compressing sheet photo:', err);
+      showToast('تعذر معالجة إحدى الصور المضافة: ' + err.message, 'warning');
+    }
+  }
+
+  renderEditVisitPhotosGrid();
+  showToast('✅ تم إضافة الصور، لا تنس الضغط على "حفظ التعديلات"', 'success');
+}
+
+async function saveEditedVisit() {
+  const visitId = editVisitState.visitId || (document.getElementById('ev-visit-id') ? document.getElementById('ev-visit-id').value : null);
+  if (!visitId) {
+    showToast('خطأ: تعذر تحديد الزيارة', 'error');
+    return;
+  }
+
+  const v = state.currentVisits ? state.currentVisits.find(item => item.id === visitId) : null;
+  if (!v) {
+    showToast('تعذر العثور على بيانات الزيارة', 'error');
+    return;
+  }
+
+  // Read fields
+  const typeEsteshara = document.getElementById('ev-type-esteshara');
+  const selectedType = (typeEsteshara && typeEsteshara.checked) ? 'استشارة ومتابعة' : 'كشف جديد';
+
+  const dateInput = document.getElementById('ev-date');
+  const selectedDate = (dateInput && dateInput.value) ? dateInput.value : v.date;
+
+  const diagInput = document.getElementById('ev-diagnosis');
+  const tttInput = document.getElementById('ev-ttt');
+  const examInput = document.getElementById('ev-exam');
+
+  const diagnosis = diagInput ? diagInput.value.trim() : '';
+  const treatment = tttInput ? tttInput.value.trim() : '';
+  const examinationNotes = examInput ? examInput.value.trim() : '';
+
+  // Update object
+  v.type = selectedType;
+  v.date = selectedDate;
+  v.images = [...editVisitState.images];
+  v.diagnosis = diagnosis;
+  v.treatment = treatment;
+  v.examinationNotes = examinationNotes;
+  v.updatedAt = new Date().toISOString();
+
+  // If AI extractedData exists, keep its fields synchronized
+  if (v.extractedData) {
+    if (diagnosis) v.extractedData.diagnosis = diagnosis;
+    if (treatment) v.extractedData.treatment = treatment;
+    if (examinationNotes) v.extractedData.clinicalNotes = examinationNotes;
+  }
+
+  // Also update current patient diagnosis if updated here
+  if (diagnosis && state.currentPatient && (!state.currentPatient.diagnosis || state.currentPatient.diagnosis === 'غير محدد')) {
+    state.currentPatient.diagnosis = diagnosis;
+    await window.clinicDB.savePatient(state.currentPatient);
+  }
+
+  await window.clinicDB.saveVisit(v);
+
+  closeEditVisitModal();
+  await selectPatient(state.currentPatient.id);
+  showToast('✅ تم حفظ تعديلات الشيت والزيارة بنجاح', 'success');
+}
+
+function deleteVisitConfirmFromEditModal() {
+  const visitId = editVisitState.visitId;
+  closeEditVisitModal();
+  if (visitId) {
+    deleteVisitConfirm(visitId);
+  }
+}
+
+// --- Quick Direct Add / Delete Photos from Visit Cards ---
+function addPhotoToVisitDirect(visitId) {
+  targetVisitForDirectPhotoAdd = visitId;
+  const fileInput = document.getElementById('direct-visit-photo-input');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  }
+}
+
+async function handleDirectVisitPhotoSelected(files) {
+  if (!files || !files.length || !targetVisitForDirectPhotoAdd) return;
+
+  const v = state.currentVisits ? state.currentVisits.find(item => item.id === targetVisitForDirectPhotoAdd) : null;
+  if (!v) {
+    showToast('تعذر العثور على الزيارة المحددة', 'warning');
+    return;
+  }
+
+  showToast('جارٍ إضافة وضغط الصفحات الجديدة للشيت...', 'info');
+
+  if (!Array.isArray(v.images)) {
+    v.images = [];
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const res = await compressImage(files[i], 1600, 0.82);
+      if (res && res.data) {
+        v.images.push(res.data);
+      }
+    } catch (err) {
+      console.error('Error compressing direct visit photo:', err);
+      showToast('تعذر معالجة إحدى الصور المضافة: ' + err.message, 'warning');
+    }
+  }
+
+  v.updatedAt = new Date().toISOString();
+  await window.clinicDB.saveVisit(v);
+
+  targetVisitForDirectPhotoAdd = null;
+  await selectPatient(state.currentPatient.id);
+  showToast('✅ تم إضافة الصفحات الجديدة للشيت بنجاح', 'success');
+}
+
+async function deletePhotoFromVisit(visitId, photoIndex) {
+  const v = state.currentVisits ? state.currentVisits.find(item => item.id === visitId) : null;
+  if (!v || !Array.isArray(v.images) || photoIndex < 0 || photoIndex >= v.images.length) return;
+
+  const confirmed = confirm(`هل أنت متأكد من حذف الصفحة رقم ${photoIndex + 1} من هذا الشيت؟`);
+  if (!confirmed) return;
+
+  v.images.splice(photoIndex, 1);
+  v.updatedAt = new Date().toISOString();
+  await window.clinicDB.saveVisit(v);
+
+  await selectPatient(state.currentPatient.id);
+  showToast('تم حذف الصفحة من الشيت بنجاح', 'info');
 }
 
 // --- Settings & Backup ---

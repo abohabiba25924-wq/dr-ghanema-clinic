@@ -793,6 +793,128 @@
     </div>
   </div>
 
+  <!-- 4.5. EDIT VISIT & SHEETS MODAL -->
+  <div id="edit-visit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-right">
+      <!-- Mobile Bottom-Sheet Grab Handle -->
+      <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
+      
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-teal-50/60 to-slate-50">
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+            <i data-lucide="edit" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base">تعديل بيانات الشيت والزيارة</h3>
+            <p class="text-[11px] text-slate-400">تعديل نوع الزيارة (كشف/استشارة)، وتعديل أو إضافة وحذف صور الشيت</p>
+          </div>
+        </div>
+        <button onclick="closeEditVisitModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Hidden ID -->
+      <input type="hidden" id="ev-visit-id" value="" />
+
+      <!-- Modal Body -->
+      <div class="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+        
+        <!-- Row 1: Visit Type & Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+              <i data-lucide="tag" class="w-3.5 h-3.5 text-teal-600"></i> نوع الزيارة:
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-1.5 p-2 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-teal-500 transition-all font-bold text-teal-900">
+                <input type="radio" name="ev-type" value="كشف جديد" id="ev-type-kashf" class="text-teal-600 focus:ring-teal-500" />
+                <span>🩺 كشف جديد</span>
+              </label>
+              <label class="flex items-center gap-1.5 p-2 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-amber-500 transition-all font-bold text-amber-900">
+                <input type="radio" name="ev-type" value="استشارة ومتابعة" id="ev-type-esteshara" class="text-amber-600 focus:ring-amber-500" />
+                <span>🔄 استشارة ومتابعة</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-teal-600"></i> تاريخ الزيارة:
+            </label>
+            <input type="date" id="ev-date" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Row 2: Sheet Photos Management (Add / Delete Photos) -->
+        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
+                <i data-lucide="images" class="w-4 h-4 text-teal-600"></i> صور الشيت الورقي لهذه الزيارة:
+              </span>
+              <span class="text-[11px] text-slate-400">يمكنك حذف أي صفحة أو إضافة صفحات جديدة للشيت</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="document.getElementById('ev-add-camera-input').click()" class="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs flex items-center gap-1 shadow-sm transition-all">
+                <i data-lucide="camera" class="w-3.5 h-3.5"></i> تصوير صفحة
+              </button>
+              <button type="button" onclick="document.getElementById('ev-add-gallery-input').click()" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1 transition-all">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> رفع من الجهاز
+              </button>
+              <input type="file" id="ev-add-camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleEditVisitPhotoUpload(this.files)" />
+              <input type="file" id="ev-add-gallery-input" accept="image/*" multiple class="hidden" onchange="handleEditVisitPhotoUpload(this.files)" />
+            </div>
+          </div>
+
+          <!-- Thumbnails Grid with Delete X buttons -->
+          <div id="ev-photos-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Row 3: Clinical Notes (Diagnosis & Treatment) -->
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1 flex items-center gap-1">
+              <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-600"></i> التشخيص (Diagnosis):
+            </label>
+            <input type="text" id="ev-diagnosis" placeholder="التشخيص الطبي" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+          </div>
+
+          <div>
+            <label class="block font-bold text-emerald-800 mb-1 flex items-center gap-1">
+              <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-600"></i> العلاج والروشتة (Treatment):
+            </label>
+            <textarea id="ev-ttt" rows="2" placeholder="الأدوية والجرعات" class="w-full p-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl font-medium text-slate-800"></textarea>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1 flex items-center gap-1">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-slate-500"></i> ملاحظات الفحص أو المتابعة (Notes):
+            </label>
+            <textarea id="ev-exam" rows="2" placeholder="ملاحظات الفحص، الأعراض، أو خطة المتابعة" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button type="button" onclick="deleteVisitConfirmFromEditModal()" class="px-3.5 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold flex items-center gap-1 transition-all">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> حذف الزيارة بالكامل
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeEditVisitModal()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-xl">إلغاء</button>
+          <button type="button" onclick="saveEditedVisit()" class="px-5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all">
+            <i data-lucide="check" class="w-4 h-4"></i> حفظ التعديلات
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- 5. SETTINGS & BACKUP MODAL -->
   <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
     <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-right">
@@ -939,12 +1061,46 @@
     </div>
   </div>
 
-  <!-- 6. LIGHTBOX FULLSCREEN IMAGE MODAL -->
-  <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer" onclick="closeLightbox()">
-    <button onclick="closeLightbox()" class="absolute top-5 right-5 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full">
-      <i data-lucide="x" class="w-6 h-6"></i>
-    </button>
-    <img id="lightbox-img" src="" class="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl" onclick="event.stopPropagation()" />
+  <!-- 6. LIGHTBOX FULLSCREEN IMAGE MODAL WITH CAROUSEL NAVIGATION -->
+  <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-2 sm:p-5 select-none" onclick="closeLightbox()">
+    <!-- Top Header Bar -->
+    <div class="w-full flex items-center justify-between z-20 px-2 py-1 text-white" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <span id="lightbox-counter" class="px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-bold font-mono border border-white/20">
+          صفحة 1 من 1
+        </span>
+        <span class="text-xs text-slate-300 hidden sm:inline">💡 يمكنك استخدام الأسهم للتقليب أو السحب باللمس</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="downloadLightboxImage()" title="تنزيل الصورة" class="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all">
+          <i data-lucide="download" class="w-5 h-5"></i>
+        </button>
+        <button type="button" onclick="closeLightbox()" title="إغلاق (Esc)" class="p-2 bg-white/10 hover:bg-rose-600/80 text-white rounded-full transition-all">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center Carousel: Image & Floating Arrows -->
+    <div class="relative flex-1 w-full flex items-center justify-center overflow-hidden my-1" onclick="event.stopPropagation()">
+      <!-- Prev Button (Right side in RTL) -->
+      <button id="lightbox-prev-btn" type="button" onclick="prevLightboxImage()" title="الصفحة السابقة (سهم يمين)" class="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-black/60 hover:bg-teal-600 text-white flex items-center justify-center backdrop-blur-md transition-all shadow-2xl active:scale-90 border border-white/20">
+        <i data-lucide="chevron-right" class="w-6 h-6 sm:w-8 sm:h-8"></i>
+      </button>
+
+      <!-- Main Image -->
+      <img id="lightbox-img" src="" class="max-w-full max-h-[78vh] sm:max-h-[82vh] object-contain rounded-2xl shadow-2xl transition-all duration-150" />
+
+      <!-- Next Button (Left side in RTL) -->
+      <button id="lightbox-next-btn" type="button" onclick="nextLightboxImage()" title="الصفحة التالية (سهم يسار)" class="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-black/60 hover:bg-teal-600 text-white flex items-center justify-center backdrop-blur-md transition-all shadow-2xl active:scale-90 border border-white/20">
+        <i data-lucide="chevron-left" class="w-6 h-6 sm:w-8 sm:h-8"></i>
+      </button>
+    </div>
+
+    <!-- Bottom Thumbnail Navigation Bar -->
+    <div id="lightbox-thumbs" class="w-full flex items-center justify-center gap-2 overflow-x-auto py-2 z-20" onclick="event.stopPropagation()">
+      <!-- Dynamically filled with mini page thumbnails -->
+    </div>
   </div>
 
   <!-- 7. MOBILE CONNECT & QR CODE MODAL -->
@@ -1038,13 +1194,16 @@
   <!-- Mobile Gallery / Multi-photo Input (Allows selecting multiple photos from device library) -->
   <input type="file" id="mobile-gallery-input" accept="image/*" multiple class="hidden" onchange="handleDirectCameraCapture(this.files)" />
 
+  <!-- Direct Add Photo to Visit Input -->
+  <input type="file" id="direct-visit-photo-input" accept="image/*" multiple class="hidden" onchange="handleDirectVisitPhotoSelected(this.files)" />
+
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=11"></script>
-  <script src="js/auth.js?v=11"></script>
-  <script src="js/sync.js?v=11"></script>
-  <script src="js/gemini.js?v=11"></script>
-  <script src="js/seed-data.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="js/db.js?v=12"></script>
+  <script src="js/auth.js?v=12"></script>
+  <script src="js/sync.js?v=12"></script>
+  <script src="js/gemini.js?v=12"></script>
+  <script src="js/seed-data.js?v=12"></script>
+  <script src="js/app.js?v=12"></script>
 
 </body>
 </html>
