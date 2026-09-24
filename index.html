@@ -350,6 +350,10 @@
 
               <!-- Top Actions on Patient -->
               <div class="flex items-center gap-2">
+                <button onclick="openEditPatientModal()" class="px-3 sm:px-3.5 py-2 bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-300 hover:border-teal-400 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all" title="تعديل بيانات المريض والتشخيص والشيت">
+                  <i data-lucide="user-cog" class="w-4 h-4 text-teal-600"></i>
+                  <span>تعديل المريض</span>
+                </button>
                 <button onclick="openUploadModal(null, null, 'كشف جديد')" class="px-3 sm:px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all">
                   <i data-lucide="camera" class="w-4 h-4"></i> تصوير شيت
                 </button>
@@ -368,7 +372,10 @@
             <!-- Diagnosis Banner -->
             <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs">
               <span class="text-teal-700 font-bold flex items-center gap-1 shrink-0"><i data-lucide="stethoscope" class="w-4 h-4"></i> التشخيص:</span>
-              <span id="p-header-diagnosis" class="font-bold text-teal-900 bg-teal-50 border border-teal-200 px-3 py-1 rounded-lg truncate">---</span>
+              <div onclick="openEditPatientModal()" class="cursor-pointer group flex items-center gap-1.5 flex-1 min-w-0" title="اضغط لتعديل التشخيص وبيانات المريض">
+                <span id="p-header-diagnosis" class="font-bold text-teal-900 bg-teal-50 group-hover:bg-teal-100 border border-teal-200 px-3 py-1 rounded-lg truncate transition-all">---</span>
+                <i data-lucide="edit-3" class="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-600 transition-colors shrink-0"></i>
+              </div>
             </div>
 
             <!-- Visits History Dates Filter Bar (الأيام اللي كشف فيها بالتواريخ) -->
@@ -636,105 +643,133 @@
     <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden text-right">
       <!-- Mobile Bottom-Sheet Grab Handle -->
       <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 sm:hidden"></div>
-      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-        <h3 class="font-black text-slate-900 text-base">تعديل بيانات المريض والشيت الأولي</h3>
-        <button onclick="document.getElementById('edit-patient-modal').classList.add('hidden')" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
+      
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-teal-50/80 to-slate-50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center shadow-sm">
+            <i data-lucide="user-cog" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base">تعديل بيانات المريض والملف الطبي</h3>
+            <p class="text-[11px] text-slate-400">تعديل البيانات الشخصية، التشخيص، الشكوى، والتاريخ المرضي</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditPatientModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl transition-all">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-      <div class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">كود المريض:</label>
-            <input type="text" id="edit-p-code" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-teal-900" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block font-bold text-slate-700 mb-1">اسم المريض:</label>
-            <input type="text" id="edit-p-name" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">السن:</label>
-            <input type="text" id="edit-p-age" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">الهاتف:</label>
-            <input type="text" id="edit-p-phone" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">النوع:</label>
-            <select id="edit-p-sex" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
-              <option value="أنثى">أنثى</option>
-              <option value="ذكر">ذكر</option>
-            </select>
+
+      <!-- Modal Body -->
+      <div class="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+        
+        <!-- Section 1: Demographics & Contact -->
+        <div class="space-y-3 bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
+          <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-b border-slate-200 pb-2">
+            <i data-lucide="user" class="w-4 h-4 text-teal-600"></i> البيانات الشخصية والاتصال
+          </h4>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">كود المريض:</label>
+              <input type="text" id="edit-p-code" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-teal-900 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div class="col-span-2">
+              <label class="block font-bold text-slate-700 mb-1">اسم المريض:</label>
+              <input type="text" id="edit-p-name" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">السن:</label>
+              <input type="text" id="edit-p-age" placeholder="السن بالسنوات" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">الهاتف:</label>
+              <input type="text" id="edit-p-phone" placeholder="01xxxxxxxxx" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">النوع:</label>
+              <select id="edit-p-sex" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-semibold focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                <option value="أنثى">أنثى</option>
+                <option value="ذكر">ذكر</option>
+              </select>
+            </div>
+            <div class="col-span-2 sm:col-span-3">
+              <label class="block font-bold text-slate-700 mb-1">العنوان:</label>
+              <input type="text" id="edit-p-address" placeholder="المحافظة / المدينة / الحي" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">المهنة:</label>
+              <input type="text" id="edit-p-occupation" placeholder="المهنة أو الوظيفة" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div class="col-span-2">
+              <label class="block font-bold text-slate-700 mb-1">الحالة الاجتماعية والأبناء:</label>
+              <input type="text" id="edit-p-marital" placeholder="متزوج / عدد الأبناء" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">العنوان:</label>
-          <input type="text" id="edit-p-address" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-        </div>
+        <!-- Section 2: Clinical & Medical Details (Doctor Controlled) -->
+        <div id="edit-patient-clinical-section" class="space-y-3 bg-teal-50/30 border border-teal-200/80 rounded-2xl p-4">
+          <h4 class="font-bold text-teal-900 text-xs flex items-center gap-1.5 border-b border-teal-200 pb-2">
+            <i data-lucide="stethoscope" class="w-4 h-4 text-teal-700"></i> التشخيص الطبي والتاريخ المرضي (خاص بالطبيب)
+          </h4>
 
-        <div>
-          <label class="block font-bold text-teal-800 mb-1">التشخيص (Diagnosis):</label>
-          <input type="text" id="edit-p-diagnosis" class="w-full p-2.5 bg-teal-50/70 border border-teal-200 rounded-xl font-bold text-teal-950" />
-        </div>
+          <div>
+            <label class="block font-bold text-teal-900 mb-1">التشخيص الطبي العام (Diagnosis):</label>
+            <input type="text" id="edit-p-diagnosis" placeholder="التشخيص الطبي، e.g., Rheumatoid Arthritis" class="w-full p-2.5 bg-white border border-teal-300 rounded-xl font-bold text-teal-950 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
 
-        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">المهنة:</label>
-            <input type="text" id="edit-p-occupation" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+            <label class="block font-bold text-slate-700 mb-1">الشكوى الرئيسية وتاريخ المرض (Main Complaint):</label>
+            <textarea id="edit-p-complaint" rows="3" placeholder="تفاصيل شكوى المريض والأعراض الحالية" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl leading-relaxed focus:ring-2 focus:ring-teal-500 focus:outline-none"></textarea>
           </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">الحالة والأبناء:</label>
-            <input type="text" id="edit-p-marital" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">G P L:</label>
-            <input type="text" id="edit-p-gpl" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">العلاج السابق (Current / Past TTT):</label>
+              <input type="text" id="edit-p-current-ttt" placeholder="الأدوية السابقة" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">الحساسية (Allergy):</label>
+              <input type="text" id="edit-p-allergy" placeholder="حساسية أدوية أو أطعمة" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
           </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">الدورة (Menses):</label>
-            <input type="text" id="edit-p-menses" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">التدخين:</label>
-            <input type="text" id="edit-p-smoking" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-        </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">الحساسية (Allergy):</label>
-            <input type="text" id="edit-p-allergy" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">العمليات السابقة (Operations):</label>
+              <input type="text" id="edit-p-operations" placeholder="عمليات جراحية سابقة" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">تاريخ العائلة المرضي (Family History):</label>
+              <input type="text" id="edit-p-family" placeholder="أمراض مناعية أو وراثية بالعائلة" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+            </div>
           </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">العمليات (Operations):</label>
-            <input type="text" id="edit-p-operations" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-        </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">العائلة (Family History):</label>
-            <input type="text" id="edit-p-family" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">العلاج السابق (Current TTT):</label>
-            <input type="text" id="edit-p-current-ttt" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl" />
+          <!-- Female & Habits sub-row -->
+          <div class="grid grid-cols-3 gap-2 pt-1 border-t border-teal-100">
+            <div>
+              <label class="block font-bold text-slate-600 mb-1 text-[11px]">G P L:</label>
+              <input type="text" id="edit-p-gpl" placeholder="G_ P_ L_" class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-600 mb-1 text-[11px]">الدورة (Menses):</label>
+              <input type="text" id="edit-p-menses" placeholder="منتظمة / انقطاع" class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-600 mb-1 text-[11px]">التدخين:</label>
+              <input type="text" id="edit-p-smoking" placeholder="مدخن / غير مدخن" class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">الشكوى وتاريخ المرض بالتفصيل (Main Complaint):</label>
-          <textarea id="edit-p-complaint" rows="4" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl leading-relaxed"></textarea>
-        </div>
       </div>
+
+      <!-- Modal Footer -->
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
-        <button onclick="document.getElementById('edit-patient-modal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-500">إلغاء</button>
-        <button onclick="saveEditedPatient()" class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ التعديلات</button>
+        <button type="button" onclick="closeEditPatientModal()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all">إلغاء</button>
+        <button type="button" onclick="saveEditedPatient()" class="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all">
+          <i data-lucide="check" class="w-4 h-4"></i> حفظ كافة البيانات
+        </button>
       </div>
     </div>
   </div>
@@ -1198,12 +1233,12 @@
   <input type="file" id="direct-visit-photo-input" accept="image/*" multiple class="hidden" onchange="handleDirectVisitPhotoSelected(this.files)" />
 
   <!-- APPLICATION SCRIPTS -->
-  <script src="js/db.js?v=13"></script>
-  <script src="js/auth.js?v=13"></script>
-  <script src="js/sync.js?v=13"></script>
-  <script src="js/gemini.js?v=13"></script>
-  <script src="js/seed-data.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/db.js?v=14"></script>
+  <script src="js/auth.js?v=14"></script>
+  <script src="js/sync.js?v=14"></script>
+  <script src="js/gemini.js?v=14"></script>
+  <script src="js/seed-data.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 
 </body>
 </html>

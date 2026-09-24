@@ -119,6 +119,7 @@ window.saveSheetDirectly = saveSheetDirectly;
 window.openManualNewPatientModal = openManualNewPatientModal;
 window.saveManualNewPatient = saveManualNewPatient;
 window.openEditPatientModal = openEditPatientModal;
+window.closeEditPatientModal = closeEditPatientModal;
 window.saveEditedPatient = saveEditedPatient;
 window.deleteCurrentPatient = deleteCurrentPatient;
 window.deleteVisitConfirm = deleteVisitConfirm;
@@ -2366,58 +2367,99 @@ async function saveNewVisitManual() {
 // --- Edit Patient Modal Handling ---
 function openEditPatientModal() {
   const p = state.currentPatient;
-  if (!p) return;
+  if (!p) {
+    showToast('يرجى اختيار مريض أولاً لتعديل بياناته', 'warning');
+    return;
+  }
 
-  document.getElementById('edit-p-code').value = p.code || '';
-  document.getElementById('edit-p-name').value = p.name || '';
-  document.getElementById('edit-p-age').value = p.age || '';
-  document.getElementById('edit-p-phone').value = p.phone || '';
-  document.getElementById('edit-p-sex').value = p.sex || 'أنثى';
-  document.getElementById('edit-p-address').value = p.address || '';
-  document.getElementById('edit-p-diagnosis').value = p.diagnosis || '';
-  document.getElementById('edit-p-occupation').value = p.occupation || '';
-  document.getElementById('edit-p-marital').value = p.marital || '';
-  document.getElementById('edit-p-gpl').value = p.gpl || '';
-  document.getElementById('edit-p-menses').value = p.menses || '';
-  document.getElementById('edit-p-smoking').value = p.smoking || '';
-  document.getElementById('edit-p-allergy').value = p.allergy || '';
-  document.getElementById('edit-p-operations').value = p.operations || '';
-  document.getElementById('edit-p-family').value = p.familyHistory || '';
-  document.getElementById('edit-p-current-ttt').value = p.currentTTT || '';
-  document.getElementById('edit-p-complaint').value = p.mainComplaint || '';
+  const isMod = window.clinicAuth && window.clinicAuth.isModerator();
 
-  document.getElementById('edit-patient-modal').classList.remove('hidden');
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  };
+
+  setVal('edit-p-code', p.code || '');
+  setVal('edit-p-name', p.name || '');
+  setVal('edit-p-age', p.age || '');
+  setVal('edit-p-phone', p.phone || '');
+  setVal('edit-p-sex', p.sex || 'أنثى');
+  setVal('edit-p-address', p.address || '');
+  setVal('edit-p-diagnosis', p.diagnosis || '');
+  setVal('edit-p-occupation', p.occupation || '');
+  setVal('edit-p-marital', p.marital || '');
+  setVal('edit-p-gpl', p.gpl || '');
+  setVal('edit-p-menses', p.menses || '');
+  setVal('edit-p-smoking', p.smoking || '');
+  setVal('edit-p-allergy', p.allergy || '');
+  setVal('edit-p-operations', p.operations || '');
+  setVal('edit-p-family', p.familyHistory || '');
+  setVal('edit-p-current-ttt', p.currentTTT || '');
+  setVal('edit-p-complaint', p.mainComplaint || '');
+
+  // Hide confidential clinical section from secretary/moderator
+  const clinicalSection = document.getElementById('edit-patient-clinical-section');
+  if (clinicalSection) {
+    clinicalSection.classList.toggle('hidden', !!isMod);
+  }
+
+  const modal = document.getElementById('edit-patient-modal');
+  if (modal) modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
+}
+
+function closeEditPatientModal() {
+  const modal = document.getElementById('edit-patient-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 async function saveEditedPatient() {
   const p = state.currentPatient;
   if (!p) return;
 
-  p.code = document.getElementById('edit-p-code').value.trim() || p.code;
-  p.name = document.getElementById('edit-p-name').value.trim() || p.name;
-  p.age = document.getElementById('edit-p-age').value.trim();
-  p.phone = document.getElementById('edit-p-phone').value.trim();
-  p.sex = document.getElementById('edit-p-sex').value;
-  p.address = document.getElementById('edit-p-address').value.trim();
-  p.diagnosis = document.getElementById('edit-p-diagnosis').value.trim();
-  p.occupation = document.getElementById('edit-p-occupation').value.trim();
-  p.marital = document.getElementById('edit-p-marital').value.trim();
-  p.gpl = document.getElementById('edit-p-gpl').value.trim();
-  p.menses = document.getElementById('edit-p-menses').value.trim();
-  p.smoking = document.getElementById('edit-p-smoking').value.trim();
-  p.allergy = document.getElementById('edit-p-allergy').value.trim();
-  p.operations = document.getElementById('edit-p-operations').value.trim();
-  p.familyHistory = document.getElementById('edit-p-family').value.trim();
-  p.currentTTT = document.getElementById('edit-p-current-ttt').value.trim();
-  p.mainComplaint = document.getElementById('edit-p-complaint').value.trim();
+  const nameInput = document.getElementById('edit-p-name');
+  const name = nameInput ? nameInput.value.trim() : '';
+  if (!name) {
+    showToast('يرجى كتابة اسم المريض', 'warning');
+    return;
+  }
+
+  const isMod = window.clinicAuth && window.clinicAuth.isModerator();
+  const getVal = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+
+  p.code = getVal('edit-p-code') || p.code;
+  p.name = name;
+  p.age = getVal('edit-p-age');
+  p.phone = getVal('edit-p-phone');
+  const sexEl = document.getElementById('edit-p-sex');
+  p.sex = sexEl ? sexEl.value : (p.sex || 'أنثى');
+  p.address = getVal('edit-p-address');
+  p.occupation = getVal('edit-p-occupation');
+  p.marital = getVal('edit-p-marital');
+
+  if (!isMod) {
+    p.diagnosis = getVal('edit-p-diagnosis');
+    p.gpl = getVal('edit-p-gpl');
+    p.menses = getVal('edit-p-menses');
+    p.smoking = getVal('edit-p-smoking');
+    p.allergy = getVal('edit-p-allergy');
+    p.operations = getVal('edit-p-operations');
+    p.familyHistory = getVal('edit-p-family');
+    p.currentTTT = getVal('edit-p-current-ttt');
+    p.mainComplaint = getVal('edit-p-complaint');
+  }
+
+  p.updatedAt = new Date().toISOString();
 
   await window.clinicDB.savePatient(p);
   await loadPatients();
   await selectPatient(p.id);
 
-  document.getElementById('edit-patient-modal').classList.add('hidden');
-  showToast('تم تحديث بيانات المريض والشيت بنجاح!', 'success');
+  closeEditPatientModal();
+  showToast(`✅ تم تحديث بيانات المريض "${p.name}" بنجاح`, 'success');
 }
 
 // --- Delete Patient / Visit Confirmation ---
