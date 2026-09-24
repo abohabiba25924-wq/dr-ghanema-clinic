@@ -6,7 +6,8 @@ let state = {
   patients: [],
   currentPatient: null,
   currentVisits: [],
-  activeTab: 'timeline',
+  activeTab: 'gallery',
+  selectedVisitFilter: null,
   jointMapInstance: null,
   pendingImages: [], // array of { name, data, mimeType }
   extractedData: null
@@ -17,6 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await window.clinicDB.init();
     await window.checkAndSeedInitialData();
+    if (window.clinicAuth) {
+      await window.clinicAuth.init();
+    }
     await loadPatients();
     setupEventListeners();
     fetchActiveUrls();
@@ -92,7 +96,37 @@ window.clearSearch = clearSearch;
 window.renderPatientsList = renderPatientsList;
 window.renderCurrentTab = renderCurrentTab;
 window.renderPatientHeader = renderPatientHeader;
+window.renderVisitsDatesBar = renderVisitsDatesBar;
 window.selectPatient = selectPatient;
+window.filterByVisit = filterByVisit;
+window.switchTab = switchTab;
+window.toggleAIAccordion = toggleAIAccordion;
+window.openUploadModal = openUploadModal;
+window.closeUploadModal = closeUploadModal;
+window.saveSheetDirectly = saveSheetDirectly;
+window.openManualNewPatientModal = openManualNewPatientModal;
+window.saveManualNewPatient = saveManualNewPatient;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.prefillLogin = prefillLogin;
+window.handleLoginSubmit = handleLoginSubmit;
+window.togglePasswordVisibility = togglePasswordVisibility;
+window.saveDoctorAccountSettings = saveDoctorAccountSettings;
+window.saveModeratorAccountSettings = saveModeratorAccountSettings;
+window.openLightbox = openLightbox;
+window.closeLightbox = closeLightbox;
+window.printVisitReport = printVisitReport;
+window.triggerBrowserPrint = triggerBrowserPrint;
+window.startLiveCamera = startLiveCamera;
+window.stopLiveCamera = stopLiveCamera;
+window.captureFromLiveCamera = captureFromLiveCamera;
+window.switchLiveCameraFacing = switchLiveCameraFacing;
+window.showMobileView = showMobileView;
+window.triggerDirectMobileCamera = triggerDirectMobileCamera;
+window.handleDirectCameraCapture = handleDirectCameraCapture;
+window.openMobileConnectModal = openMobileConnectModal;
+window.closeMobileConnectModal = closeMobileConnectModal;
+window.copyMobileUrl = copyMobileUrl;
 
 function updateHeaderStats() {
   const totalCountEl = document.getElementById('stat-total-patients');
@@ -151,7 +185,7 @@ function renderPatientsList() {
           <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i> ${p.age ? p.age + ' سنة' : ''}</span>
           <span class="flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3 text-slate-400"></i> ${p.sex || ''}</span>
         </div>
-        ${p.diagnosis ? `
+        ${(p.diagnosis && (!window.clinicAuth || window.clinicAuth.isAdmin())) ? `
           <div class="mt-2 pt-1.5 border-t border-slate-100 text-xs text-teal-700 font-medium truncate flex items-center gap-1">
             <i data-lucide="stethoscope" class="w-3 h-3 text-teal-600 shrink-0"></i>
             <span class="truncate">${escapeHtml(p.diagnosis)}</span>
@@ -170,6 +204,7 @@ async function selectPatient(patientId) {
   if (!patient) return;
 
   state.currentPatient = patient;
+  state.selectedVisitFilter = null;
   state.currentVisits = await window.clinicDB.getVisitsByPatient(patientId);
 
   // Highlight in sidebar list
@@ -221,11 +256,80 @@ function renderPatientHeader() {
   const addrEl = document.getElementById('p-header-address');
   if (addrEl) addrEl.textContent = p.address || 'العنوان غير مدخل';
 
+  const isMod = window.clinicAuth && window.clinicAuth.isModerator();
   const diagEl = document.getElementById('p-header-diagnosis');
-  if (diagEl) diagEl.textContent = p.diagnosis || 'لم يحدد تشخيص بعد';
+  if (diagEl) {
+    if (isMod) {
+      diagEl.textContent = '🔒 بيانات طبية خاصة بالطبيب';
+    } else {
+      diagEl.textContent = p.diagnosis || 'لم يحدد تشخيص بعد';
+    }
+  }
 
   const visitsBadge = document.getElementById('p-header-visits-count');
   if (visitsBadge) visitsBadge.textContent = `${state.currentVisits.length} زيارة`;
+
+  // Hide or show doctor-only tabs in the navigation bar
+  document.querySelectorAll('.doctor-only-tab').forEach(el => {
+    el.classList.toggle('hidden', isMod);
+  });
+
+  // Doctor-only actions (like delete button)
+  document.querySelectorAll('.admin-only-action').forEach(el => {
+    el.classList.toggle('hidden', isMod);
+  });
+
+  // Render Visits Dates Filter Bar
+  renderVisitsDatesBar();
+}
+
+function renderVisitsDatesBar() {
+  const container = document.getElementById('patient-visits-dates-bar');
+  if (!container) return;
+
+  if (!state.currentVisits || state.currentVisits.length === 0) {
+    container.innerHTML = `<span class="text-xs text-slate-400 italic">لا توجد زيارات مسجلة لهذا المريض بعد</span>`;
+    return;
+  }
+
+  const isAll = !state.selectedVisitFilter;
+  let html = `
+    <button onclick="filterByVisit(null)" class="shrink-0 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+      isAll 
+        ? 'bg-teal-700 text-white shadow-sm ring-2 ring-teal-500/20' 
+        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+    }">
+      كل الشيتات (${state.currentVisits.length})
+    </button>
+  `;
+
+  state.currentVisits.forEach(v => {
+    const isSelected = state.selectedVisitFilter === v.id;
+    const isConsultation = v.type && v.type.includes('استشارة');
+    const badgeColor = isConsultation ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-teal-800 bg-teal-50 border-teal-200';
+    const activeColor = isConsultation ? 'bg-amber-600 text-white' : 'bg-teal-600 text-white';
+
+    html += `
+      <button onclick="filterByVisit('${v.id}')" class="shrink-0 px-3 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+        isSelected 
+          ? activeColor + ' shadow-sm ring-2 ring-teal-500/20' 
+          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+      }">
+        <span>🗓️ ${formatDate(v.date)}</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${isSelected ? 'bg-white/25 text-white' : badgeColor}">
+          ${v.type || 'كشف'}
+        </span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function filterByVisit(visitId) {
+  state.selectedVisitFilter = visitId;
+  renderVisitsDatesBar();
+  renderCurrentTab();
 }
 
 function switchTab(tabKey) {
@@ -688,61 +792,327 @@ function renderLabsTrackerTab(container) {
   `;
 }
 
-// --- Tab 5: Original Sheets Gallery ---
+// --- Tab: Original Sheets Gallery (Photo-First Primary View) ---
 function renderGalleryTab(container) {
-  const allImages = [];
-  state.currentVisits.forEach((v, vIdx) => {
-    if (v.images && v.images.length > 0) {
-      v.images.forEach((img, iIdx) => {
-        allImages.push({
-          src: img,
-          visitDate: v.date,
-          visitType: v.type,
-          pageNumber: iIdx + 1
-        });
-      });
-    }
-  });
+  const isMod = window.clinicAuth && window.clinicAuth.isModerator();
+
+  // Filter visits if a specific visit date was chosen
+  let visitsToDisplay = state.currentVisits;
+  if (state.selectedVisitFilter) {
+    visitsToDisplay = state.currentVisits.filter(v => v.id === state.selectedVisitFilter);
+  }
+
+  const visitsWithImages = visitsToDisplay.filter(v => v.images && v.images.length > 0);
+
+  if (visitsWithImages.length === 0) {
+    container.innerHTML = `
+      <div class="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center shadow-sm">
+        <div class="w-16 h-16 rounded-3xl bg-teal-50 text-teal-600 mx-auto mb-3 flex items-center justify-center">
+          <i data-lucide="image-off" class="w-8 h-8 opacity-60"></i>
+        </div>
+        <h4 class="text-base font-bold text-slate-800 mb-1">لا توجد شيتات مسجلة ${state.selectedVisitFilter ? 'لهذا التاريخ' : 'لهذا المريض'}</h4>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto mb-5">
+          يمكنك تصوير شيت الكشف أو الاستشارة بالكاميرا، وستظهر الصور هنا فوراً في ملف المريض.
+        </p>
+        <button onclick="openUploadModal()" class="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-xs rounded-xl shadow inline-flex items-center gap-2">
+          <i data-lucide="camera" class="w-4 h-4"></i> رفع أو تصوير شيت الآن
+        </button>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
 
   container.innerHTML = `
-    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-6">
-        <div>
-          <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
-            <i data-lucide="images" class="w-5 h-5 text-teal-600"></i>
-            أرشيف الشيتات الورقية الأصلية (${allImages.length} صفحة)
-          </h3>
-          <p class="text-xs text-slate-400 mt-1">الصور الأصلية الممسوحة ضوئياً أو المصورة بالموبايل بكامل دقتها</p>
+    <div class="space-y-6">
+      ${visitsWithImages.map(v => {
+        const isConsultation = v.type && v.type.includes('استشارة');
+        const hasAI = !!(v.extractedData || v.aiProcessed);
+        return `
+          <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+            <!-- Visit Header Info Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <span class="px-3 py-1 rounded-full text-xs font-bold ${
+                  isConsultation ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-teal-100 text-teal-900 border border-teal-200'
+                }">
+                  ${v.type || 'كشف جديد'}
+                </span>
+                <span class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+                  <i data-lucide="calendar" class="w-4 h-4 text-teal-600"></i> ${formatDate(v.date)}
+                </span>
+                <span class="text-xs text-slate-400">(${v.images.length} صفحة)</span>
+              </div>
+
+              <!-- Actions on this visit -->
+              <div class="flex items-center gap-2">
+                ${!isMod ? `
+                  <button onclick="toggleAIAccordion('${v.id}')" id="btn-ai-toggle-${v.id}" class="px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm ${
+                    hasAI 
+                      ? 'bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200' 
+                      : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white'
+                  }">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>${hasAI ? 'عرض تفريغ الـ AI (English)' : '✨ تفريغ الشيت بالـ AI'}</span>
+                  </button>
+                  <button onclick="printVisitReport('${v.id}')" class="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded-lg transition-all" title="طباعة روشتة / تقرير">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                  </button>
+                  <button onclick="deleteVisitConfirm('${v.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="حذف الزيارة">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Sheets Images Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${v.images.map((imgSrc, imgIdx) => {
+                if (isMod) {
+                  // Moderator: Privacy Shield
+                  return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-64">
+                      <div class="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center mb-3">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                      </div>
+                      <span class="font-bold text-xs text-slate-800">شيت طبي محفوظ</span>
+                      <span class="text-[11px] text-slate-400 mt-1">صفحة ${imgIdx + 1} - خاص بالطبيب فقط</span>
+                    </div>
+                  `;
+                }
+                // Doctor: Full Thumbnail with Lightbox Zoom
+                return `
+                  <div onclick="openLightbox('${imgSrc}')" class="group relative bg-slate-50 border border-slate-200 hover:border-teal-400 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all">
+                    <div class="h-64 sm:h-72 overflow-hidden bg-slate-100 flex items-center justify-center p-1">
+                      <img src="${imgSrc}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                    </div>
+                    <div class="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span class="font-bold text-slate-700">صفحة ${imgIdx + 1}</span>
+                      <span class="text-[11px] font-semibold text-teal-700 flex items-center gap-1">
+                        <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i> انقر للتكبير
+                      </span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- On-Demand AI Extraction Accordion (Directly under the sheet) -->
+            ${!isMod ? `
+              <div id="ai-accordion-${v.id}" class="hidden border border-teal-200 bg-teal-50/20 rounded-2xl overflow-hidden transition-all text-left" dir="ltr">
+                <div id="ai-accordion-content-${v.id}" class="p-5 space-y-4">
+                  <!-- Rendered dynamically by renderAIAccordionContent -->
+                </div>
+              </div>
+            ` : ''}
+
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function toggleAIAccordion(visitId) {
+  const accordion = document.getElementById(`ai-accordion-${visitId}`);
+  if (!accordion) return;
+
+  const v = state.currentVisits.find(item => item.id === visitId);
+  if (!v) return;
+
+  // Toggle close if already open and has data
+  if (!accordion.classList.contains('hidden') && (v.extractedData || v.aiProcessed)) {
+    accordion.classList.add('hidden');
+    return;
+  }
+
+  // If already extracted, render and show
+  if (v.extractedData || v.aiProcessed) {
+    renderAIAccordionContent(v);
+    accordion.classList.remove('hidden');
+    return;
+  }
+
+  // Needs extraction
+  if (!v.images || v.images.length === 0) {
+    showToast('لا توجد صور شيتات في هذه الزيارة لتفريغها', 'warning');
+    return;
+  }
+
+  accordion.classList.remove('hidden');
+  const contentEl = document.getElementById(`ai-accordion-content-${visitId}`);
+  if (contentEl) {
+    contentEl.innerHTML = `
+      <div class="py-8 text-center space-y-3">
+        <div class="animate-spin inline-block w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full"></div>
+        <p class="font-bold text-sm text-teal-950">Transcribing sheet via Gemini Vision AI (100% English)...</p>
+        <p class="text-xs text-slate-500">Deciphering doctor handwriting, symptoms, examination, and prescriptions</p>
+      </div>
+    `;
+  }
+
+  try {
+    const formattedImages = v.images.map((dataUri, i) => ({
+      data: dataUri,
+      mimeType: 'image/jpeg',
+      name: `sheet_page_${i + 1}.jpg`
+    }));
+
+    const extracted = await window.geminiExtractor.extractFromImages(formattedImages);
+    v.extractedData = extracted;
+    v.aiProcessed = true;
+
+    // Map extracted fields to visit
+    if (extracted.diagnosis) v.diagnosis = extracted.diagnosis;
+    if (extracted.mainComplaint) v.history = extracted.mainComplaint;
+    if (extracted.examNotes) v.exam = extracted.examNotes;
+    if (extracted.treatment) v.ttt = extracted.treatment;
+    if (extracted.plan) v.plan = extracted.plan;
+    if (extracted.vitals) v.vitals = extracted.vitals;
+    if (extracted.labs) v.labs = extracted.labs;
+
+    // Update patient diagnosis if empty
+    if (state.currentPatient && (!state.currentPatient.diagnosis || state.currentPatient.diagnosis === 'لم يحدد تشخيص بعد')) {
+      if (extracted.diagnosis) {
+        state.currentPatient.diagnosis = extracted.diagnosis;
+        await window.clinicDB.savePatient(state.currentPatient);
+        renderPatientHeader();
+      }
+    }
+
+    await window.clinicDB.saveVisit(v);
+    showToast('✨ تم استخراج البيانات بالذكاء الاصطناعي بنجاح (100% English)', 'success');
+
+    const btn = document.getElementById(`btn-ai-toggle-${visitId}`);
+    if (btn) {
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>عرض تفريغ الـ AI (English)</span>`;
+      btn.className = 'px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200';
+    }
+
+    renderAIAccordionContent(v);
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.error('AI extraction error:', err);
+    if (contentEl) {
+      contentEl.innerHTML = `
+        <div class="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs space-y-2">
+          <p class="font-bold">Extraction Error: ${escapeHtml(err.message)}</p>
+          <p class="text-slate-600">Please make sure the Gemini API key is configured in settings and you have active internet connection.</p>
+          <button onclick="toggleAIAccordion('${visitId}')" class="px-3 py-1.5 bg-rose-700 text-white rounded-lg font-bold">Retry Extraction</button>
         </div>
+      `;
+    }
+    showToast('فشل الاستخراج بالذكاء الاصطناعي: ' + err.message, 'error');
+  }
+}
+
+function renderAIAccordionContent(v) {
+  const contentEl = document.getElementById(`ai-accordion-content-${v.id}`);
+  if (!contentEl) return;
+
+  const data = v.extractedData || {
+    diagnosis: v.diagnosis,
+    mainComplaint: v.history,
+    examNotes: v.exam,
+    treatment: v.ttt,
+    plan: v.plan,
+    vitals: v.vitals,
+    labs: v.labs
+  };
+
+  const hasLabs = data.labs && Object.keys(data.labs).some(k => data.labs[k]);
+
+  contentEl.innerHTML = `
+    <!-- Accordion Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-teal-200">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+        <h4 class="font-black text-teal-950 text-sm flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4 text-teal-600"></i>
+          AI Medical Transcription (100% Medical English)
+        </h4>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="printVisitReport('${v.id}')" class="px-3 py-1 bg-white hover:bg-teal-50 text-teal-800 border border-teal-200 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print Prescription
+        </button>
+        <button onclick="document.getElementById('ai-accordion-${v.id}').classList.add('hidden')" class="px-2.5 py-1 text-slate-500 hover:text-slate-800 text-xs font-bold">
+          ▲ Collapse
+        </button>
+      </div>
+    </div>
+
+    <!-- Diagnosis Banner -->
+    <div class="p-3 bg-white border border-teal-200 rounded-2xl">
+      <div class="text-[11px] font-bold text-teal-700 uppercase tracking-wider mb-1">Clinical Diagnosis</div>
+      <div class="text-base font-black text-slate-900">${escapeHtml(data.diagnosis || v.diagnosis || 'Diagnosis not specified')}</div>
+    </div>
+
+    <!-- Complaint & Examination Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+      <div class="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-1">
+        <div class="font-bold text-slate-700 uppercase text-[11px] flex items-center gap-1">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-teal-600"></i> Chief Complaint & Symptoms
+        </div>
+        <p class="text-slate-800 font-medium leading-relaxed">${escapeHtml(data.mainComplaint || v.history || 'No complaint notes transcribed')}</p>
       </div>
 
-      ${allImages.length === 0 ? `
-        <div class="p-10 text-center text-slate-400 bg-slate-50 rounded-2xl">
-          <i data-lucide="image-off" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
-          <p class="text-sm font-semibold text-slate-600">لا توجد صور شيتات مرفوعة لهذا المريض</p>
+      <div class="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-1">
+        <div class="font-bold text-slate-700 uppercase text-[11px] flex items-center gap-1">
+          <i data-lucide="stethoscope" class="w-3.5 h-3.5 text-teal-600"></i> Physical & Joint Examination
         </div>
-      ` : `
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          ${allImages.map(img => `
-            <div onclick="openLightbox('${img.src}')" class="group relative bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-teal-500 transition-all">
-              <div class="h-64 overflow-hidden bg-slate-100 flex items-center justify-center">
-                <img src="${img.src}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
-              </div>
-              <div class="p-3 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-700">صفحة ${img.pageNumber}</span>
-                <span class="text-slate-400">${formatDate(img.visitDate)}</span>
-              </div>
-              <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                <span class="px-3 py-1.5 bg-black/60 rounded-xl font-bold text-xs flex items-center gap-1">
-                  <i data-lucide="zoom-in" class="w-4 h-4"></i> تكبير الصورة
-                </span>
-              </div>
+        <p class="text-slate-800 font-medium leading-relaxed">${escapeHtml(data.examNotes || v.exam || 'No physical exam findings recorded')}</p>
+      </div>
+    </div>
+
+    <!-- Vitals Bar if available -->
+    ${data.vitals && (data.vitals.bp || data.vitals.pulse || data.vitals.weight) ? `
+      <div class="p-3 bg-white border border-slate-200 rounded-2xl flex flex-wrap items-center gap-4 text-xs font-medium text-slate-700">
+        <span class="font-bold text-slate-900">Vitals:</span>
+        ${data.vitals.bp ? `<span>BP: <b>${escapeHtml(data.vitals.bp)}</b></span>` : ''}
+        ${data.vitals.pulse ? `<span>Pulse: <b>${escapeHtml(data.vitals.pulse)} bpm</b></span>` : ''}
+        ${data.vitals.weight ? `<span>Weight: <b>${escapeHtml(data.vitals.weight)} kg</b></span>` : ''}
+        ${data.vitals.temp ? `<span>Temp: <b>${escapeHtml(data.vitals.temp)} °C</b></span>` : ''}
+      </div>
+    ` : ''}
+
+    <!-- Treatment / Prescriptions (TTT) -->
+    <div class="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-1 text-xs">
+      <div class="font-black text-emerald-950 uppercase text-[11px] flex items-center gap-1">
+        <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-700"></i> Prescribed Treatment (TTT)
+      </div>
+      <p class="text-slate-900 font-semibold leading-relaxed whitespace-pre-line">${escapeHtml(data.treatment || v.ttt || 'No medications prescribed')}</p>
+    </div>
+
+    <!-- Plan & Follow-up -->
+    ${data.plan || v.plan ? `
+      <div class="p-3 bg-white border border-slate-200 rounded-2xl text-xs space-y-1">
+        <div class="font-bold text-slate-700 uppercase text-[11px]">Plan & Recommendations</div>
+        <p class="text-slate-800 font-medium">${escapeHtml(data.plan || v.plan)}</p>
+      </div>
+    ` : ''}
+
+    <!-- Labs Table if available -->
+    ${hasLabs ? `
+      <div class="p-3.5 bg-white border border-slate-200 rounded-2xl text-xs space-y-2">
+        <div class="font-bold text-slate-700 uppercase text-[11px] flex items-center gap-1">
+          <i data-lucide="flask-conical" class="w-3.5 h-3.5 text-teal-600"></i> Extracted Lab Investigations
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          ${Object.keys(data.labs).filter(k => data.labs[k]).map(k => `
+            <div class="p-2 bg-slate-50 border border-slate-200 rounded-xl text-center">
+              <div class="text-[10px] text-slate-400 font-bold uppercase">${k}</div>
+              <div class="font-black text-slate-900 text-xs mt-0.5">${escapeHtml(data.labs[k])}</div>
             </div>
           `).join('')}
         </div>
-      `}
-    </div>
+      </div>
+    ` : ''}
   `;
+
+  if (window.lucide) lucide.createIcons();
 }
 
 // --- In-App Live Camera Engine (WebRTC - Zero Crash, Native Stream) ---
@@ -938,30 +1308,62 @@ function processImgSrc(src, blobToRevoke, resolve, reject, file, maxDimension, q
   img.src = src;
 }
 
-// --- Upload & AI Vision Modal Flow ---
-function openUploadModal(presetImages = null, targetPatient = null) {
+// --- Upload & Direct Sheet Save Flow ---
+function openUploadModal(presetImages = null, targetPatient = null, initialType = 'كشف جديد') {
   if (presetImages !== null) {
     state.pendingImages = presetImages;
   }
+  if (targetPatient) {
+    state.currentPatient = targetPatient;
+  } else if (!state.currentPatient && state.patients.length > 0) {
+    state.currentPatient = state.patients[0];
+  }
+
+  if (!state.currentPatient && state.patients.length === 0) {
+    showToast('يرجى إضافة مريض جديد أولاً قبل رفع الشيت', 'warning');
+    openManualNewPatientModal();
+    return;
+  }
+
+  // Display target patient name in modal header
+  const titleNameEl = document.getElementById('upload-modal-patient-name');
+  if (titleNameEl) {
+    titleNameEl.textContent = state.currentPatient ? `(${state.currentPatient.name})` : '';
+  }
+
+  // Set visit type radio (كشف جديد vs استشارة)
+  const typeRadios = document.querySelectorAll('input[name="upload-visit-type"]');
+  typeRadios.forEach(radio => {
+    radio.checked = (radio.value === initialType);
+  });
+
+  // Set default visit date to today
+  const dateInput = document.getElementById('upload-visit-date');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
   renderUploadImagesList();
 
-  const pat = targetPatient || state.currentPatient;
-  const nameEl = document.getElementById('offline-sheet-name');
-  const codeEl = document.getElementById('offline-sheet-code');
-  if (nameEl && pat && !nameEl.value) nameEl.value = pat.name || '';
-  if (codeEl && pat && !codeEl.value) codeEl.value = pat.code || '';
-
-  document.getElementById('upload-modal').classList.remove('hidden');
-  document.getElementById('upload-step-1').classList.remove('hidden');
-  document.getElementById('upload-step-ai-preview').classList.add('hidden');
+  const modal = document.getElementById('upload-modal');
+  if (modal) modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
 
 function closeUploadModal() {
   stopLiveCamera();
-  document.getElementById('upload-modal').classList.add('hidden');
+  const modal = document.getElementById('upload-modal');
+  if (modal) modal.classList.add('hidden');
   state.pendingImages = [];
   renderUploadImagesList();
+
+  // Reset file inputs
+  const singleCam = document.getElementById('mobile-camera-single-input');
+  if (singleCam) singleCam.value = '';
+  const multiGal = document.getElementById('mobile-gallery-input');
+  if (multiGal) multiGal.value = '';
+  const sheetInput = document.getElementById('sheet-file-input');
+  if (sheetInput) sheetInput.value = '';
 }
 
 async function handleImageFiles(files) {
@@ -990,8 +1392,7 @@ async function handleImageFiles(files) {
 
 function renderUploadImagesList() {
   const container = document.getElementById('uploaded-preview-grid');
-  const actionBtn = document.getElementById('btn-run-ai-extract');
-  const offlineBtn = document.getElementById('btn-save-locally-offline');
+  const directSaveBtn = document.getElementById('btn-save-sheet-direct');
   if (!container) return;
 
   if (state.pendingImages.length === 0) {
@@ -1002,14 +1403,12 @@ function renderUploadImagesList() {
         <p class="text-xs text-slate-400 mt-1">التقط صورة بكاميرا الهاتف أو اختر صفحات الشيت من الجهاز</p>
       </div>
     `;
-    if (actionBtn) actionBtn.disabled = true;
-    if (offlineBtn) offlineBtn.disabled = true;
+    if (directSaveBtn) directSaveBtn.disabled = true;
     if (window.lucide) lucide.createIcons();
     return;
   }
 
-  if (actionBtn) actionBtn.disabled = false;
-  if (offlineBtn) offlineBtn.disabled = false;
+  if (directSaveBtn) directSaveBtn.disabled = false;
 
   container.innerHTML = state.pendingImages.map((img, idx) => `
     <div class="relative group h-32 rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
@@ -1032,62 +1431,46 @@ function removePendingImage(idx) {
 }
 
 /**
- * Save sheet images locally without AI (Offline Mode)
+ * Save sheet images directly to patient file without forcing AI
  */
-async function saveSheetLocallyOffline() {
+async function saveSheetDirectly() {
   if (!state.pendingImages || state.pendingImages.length === 0) {
-    showToast('يرجى التقاط أو إضافة صورة شيت واحدة على الأقل للحفظ', 'warning');
+    showToast('يرجى التقاط أو اختيار صورة شيت واحدة على الأقل', 'warning');
     return;
   }
 
-  const saveBtn = document.getElementById('btn-save-locally-offline');
-  if (saveBtn) saveBtn.disabled = true;
+  if (!state.currentPatient) {
+    if (state.patients.length > 0) {
+      state.currentPatient = state.patients[0];
+    } else {
+      showToast('يرجى اختيار مريض أو إضافة مريض جديد أولاً لحفظ الشيت في ملفه', 'warning');
+      return;
+    }
+  }
+
+  const directSaveBtn = document.getElementById('btn-save-sheet-direct');
+  if (directSaveBtn) directSaveBtn.disabled = true;
 
   try {
-    const nameInput = document.getElementById('offline-sheet-name');
-    const codeInput = document.getElementById('offline-sheet-code');
-
-    const enteredName = nameInput ? nameInput.value.trim() : '';
-    const enteredCode = codeInput ? codeInput.value.trim() : '';
-
-    let patient = null;
-
-    // Find if code matches existing patient
-    if (enteredCode) {
-      patient = state.patients.find(p => p.code && String(p.code).trim().toLowerCase() === enteredCode.toLowerCase());
+    // Get visit type
+    let visitType = 'كشف جديد';
+    const checkedRadio = document.querySelector('input[name="upload-visit-type"]:checked');
+    if (checkedRadio) {
+      visitType = checkedRadio.value;
     }
 
-    // Find if name matches or current patient matches
-    if (!patient && enteredName) {
-      patient = state.patients.find(p => p.name && p.name.trim().toLowerCase() === enteredName.toLowerCase());
-    }
+    // Get visit date
+    const dateInput = document.getElementById('upload-visit-date');
+    const visitDate = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().split('T')[0];
 
-    if (!patient && state.currentPatient && (!enteredName || enteredName === state.currentPatient.name)) {
-      patient = state.currentPatient;
-    }
-
-    // If new patient, create in IndexedDB
-    if (!patient) {
-      const code = enteredCode || `RH-${state.patients.length + 101}`;
-      const name = enteredName || `مريض شيت (${code})`;
-      patient = {
-        id: 'patient_' + Date.now(),
-        code: code,
-        name: name,
-        createdAt: new Date().toISOString()
-      };
-      await window.clinicDB.savePatient(patient);
-    }
-
-    // Create visit with isPendingAI = true
     const visit = {
       id: 'visit_' + Date.now(),
-      patientId: patient.id,
-      date: new Date().toISOString().split('T')[0],
-      type: `شيت محفوظ محلياً (${state.pendingImages.length} صفحات)`,
-      isPendingAI: true,
-      history: 'تم حفظ صور الشيت محلياً على الجهاز. بانتظار التفريغ التلقائي بالذكاء الاصطناعي عند توفر الإنترنت.',
-      examNotes: 'صور الشيت محفوظة بالكامل في التايم لاين والأرشيف.',
+      patientId: state.currentPatient.id,
+      date: visitDate,
+      type: visitType,
+      vitals: {},
+      history: '',
+      examNotes: '',
       treatment: '',
       plan: '',
       labs: {},
@@ -1096,16 +1479,27 @@ async function saveSheetLocallyOffline() {
     };
 
     await window.clinicDB.saveVisit(visit);
-    await loadPatients();
-    await selectPatient(patient.id);
+
+    // Sync to Supabase if available
+    if (window.clinicSync && typeof window.clinicSync.syncAll === 'function') {
+      window.clinicSync.syncAll().catch(e => console.warn('Background sync failed:', e));
+    }
+
+    // Refresh current visits & patient UI
+    state.currentVisits = await window.clinicDB.getVisitsByPatient(state.currentPatient.id);
+    state.selectedVisitFilter = null;
+
+    renderVisitsDatesBar();
+    renderPatientHeader();
+    renderCurrentTab();
 
     closeUploadModal();
-    showToast('✅ تم حفظ صور الشيت محلياً في ملف المريض بنجاح! يمكنك تفريغها بالذكاء الاصطناعي لاحقاً.', 'success');
+    showToast(`✅ تم حفظ شيت الزيارة (${visitType}) في ملف المريض بنجاح!`, 'success');
   } catch (err) {
-    console.error('Save sheet error:', err);
+    console.error('Save sheet direct error:', err);
     showToast('حدث خطأ أثناء حفظ الشيت: ' + err.message, 'error');
   } finally {
-    if (saveBtn) saveBtn.disabled = false;
+    if (directSaveBtn) directSaveBtn.disabled = false;
   }
 }
 
@@ -1113,144 +1507,140 @@ async function saveSheetLocallyOffline() {
  * Re-run AI extraction for a previously stored visit
  */
 async function runAILaterForVisit(visitId) {
-  const visit = state.currentVisits.find(v => v.id === visitId);
-  if (!visit || !visit.images || visit.images.length === 0) {
-    showToast('لا توجد صور محفوظة لهذه الزيارة لتفريغها', 'warning');
-    return;
-  }
-
-  const preset = visit.images.map((data, idx) => ({
-    name: `sheet_page_${idx + 1}.png`,
-    data: data,
-    mimeType: 'image/png'
-  }));
-
-  openUploadModal(preset, state.currentPatient);
-  runAIExtraction();
+  await toggleAIAccordion(visitId);
 }
 
-async function runAIExtraction() {
-  if (state.pendingImages.length === 0) {
-    showToast('يرجى إضافة صورة شيت واحدة على الأقل للبدء', 'warning');
-    return;
-  }
+// --- Manual New Patient Modal Flow ---
+function openManualNewPatientModal() {
+  const codeEl = document.getElementById('manual-p-code');
+  const nameEl = document.getElementById('manual-p-name');
+  const ageEl = document.getElementById('manual-p-age');
+  const phoneEl = document.getElementById('manual-p-phone');
+  const sexEl = document.getElementById('manual-p-sex');
+  const addrEl = document.getElementById('manual-p-address');
+  const diagEl = document.getElementById('manual-p-diagnosis');
 
-  const btn = document.getElementById('btn-run-ai-extract');
-  const spinner = document.getElementById('ai-extract-spinner');
-  if (btn) btn.disabled = true;
-  if (spinner) spinner.classList.remove('hidden');
+  if (codeEl) codeEl.value = `RH-${state.patients.length + 101}`;
+  if (nameEl) nameEl.value = '';
+  if (ageEl) ageEl.value = '';
+  if (phoneEl) phoneEl.value = '';
+  if (sexEl) sexEl.value = 'أنثى';
+  if (addrEl) addrEl.value = '';
+  if (diagEl) diagEl.value = '';
 
-  try {
-    const extracted = await window.geminiExtractor.extractSheetData(state.pendingImages);
-    state.extractedData = extracted;
-
-    // Switch to Side-by-Side Review step
-    document.getElementById('upload-step-1').classList.add('hidden');
-    document.getElementById('upload-step-ai-preview').classList.remove('hidden');
-
-    renderAISideBySidePreview(extracted);
-  } catch (err) {
-    console.error('AI Extraction error:', err);
-    showToast(err.message, 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-    if (spinner) spinner.classList.add('hidden');
-    if (window.lucide) lucide.createIcons();
-  }
+  const modal = document.getElementById('new-patient-modal');
+  if (modal) modal.classList.remove('hidden');
+  if (nameEl) nameEl.focus();
+  if (window.lucide) lucide.createIcons();
 }
 
-function renderAISideBySidePreview(data) {
-  // Populate Image Viewer
-  const imgViewer = document.getElementById('ai-preview-image');
-  if (imgViewer && state.pendingImages[0]) {
-    imgViewer.src = state.pendingImages[0].data;
-  }
+async function saveManualNewPatient() {
+  const nameEl = document.getElementById('manual-p-name');
+  const codeEl = document.getElementById('manual-p-code');
+  const ageEl = document.getElementById('manual-p-age');
+  const phoneEl = document.getElementById('manual-p-phone');
+  const sexEl = document.getElementById('manual-p-sex');
+  const addrEl = document.getElementById('manual-p-address');
+  const diagEl = document.getElementById('manual-p-diagnosis');
 
-  // Populate Form Fields
-  document.getElementById('ai-field-code').value = data.code || '';
-  document.getElementById('ai-field-name').value = data.name || '';
-  document.getElementById('ai-field-age').value = data.age || '';
-  document.getElementById('ai-field-phone').value = data.phone || '';
-  document.getElementById('ai-field-address').value = data.address || '';
-  document.getElementById('ai-field-diagnosis').value = data.diagnosis || '';
-  document.getElementById('ai-field-sex').value = data.sex || 'أنثى';
-  document.getElementById('ai-field-gpl').value = data.gpl || '';
-  document.getElementById('ai-field-menses').value = data.menses || '';
-  document.getElementById('ai-field-allergy').value = data.allergy || '';
-  document.getElementById('ai-field-operations').value = data.operations || '';
-  document.getElementById('ai-field-family').value = data.familyHistory || '';
-  document.getElementById('ai-field-current-ttt').value = data.currentTTT || '';
-  document.getElementById('ai-field-complaint').value = data.mainComplaint || '';
-  document.getElementById('ai-field-bp').value = data.vitals?.bp || '';
-  document.getElementById('ai-field-exam').value = data.examNotes || '';
-  document.getElementById('ai-field-ttt').value = data.treatment || '';
-  document.getElementById('ai-field-plan').value = data.plan || '';
-}
-
-async function approveAndSaveExtractedData() {
-  const code = document.getElementById('ai-field-code').value.trim() || `RH-${Date.now().toString().slice(-4)}`;
-  const name = document.getElementById('ai-field-name').value.trim();
-
+  const name = nameEl ? nameEl.value.trim() : '';
   if (!name) {
-    showToast('يرجى كتابة اسم المريض لاعتماد الحفظ', 'warning');
+    showToast('يرجى كتابة اسم المريض على الأقل', 'warning');
     return;
   }
 
-  // Check if patient with this code exists or create new
-  let patient = state.patients.find(p => p.code && p.code === code);
-  const isNew = !patient;
+  const code = (codeEl && codeEl.value.trim()) ? codeEl.value.trim() : `RH-${state.patients.length + 101}`;
 
-  if (isNew) {
-    patient = {
-      id: 'patient_' + Date.now(),
-      code: code,
-      name: name,
-      age: document.getElementById('ai-field-age').value.trim(),
-      phone: document.getElementById('ai-field-phone').value.trim(),
-      address: document.getElementById('ai-field-address').value.trim(),
-      diagnosis: document.getElementById('ai-field-diagnosis').value.trim(),
-      sex: document.getElementById('ai-field-sex').value.trim(),
-      gpl: document.getElementById('ai-field-gpl').value.trim(),
-      menses: document.getElementById('ai-field-menses').value.trim(),
-      allergy: document.getElementById('ai-field-allergy').value.trim(),
-      operations: document.getElementById('ai-field-operations').value.trim(),
-      familyHistory: document.getElementById('ai-field-family').value.trim(),
-      currentTTT: document.getElementById('ai-field-current-ttt').value.trim(),
-      mainComplaint: document.getElementById('ai-field-complaint').value.trim(),
-      createdAt: new Date().toISOString()
-    };
-  } else {
-    // Update existing patient info if filled
-    patient.name = name;
-    patient.phone = document.getElementById('ai-field-phone').value.trim() || patient.phone;
-    patient.diagnosis = document.getElementById('ai-field-diagnosis').value.trim() || patient.diagnosis;
-  }
-
-  await window.clinicDB.savePatient(patient);
-
-  // Create Visit
-  const visit = {
-    id: 'visit_' + Date.now(),
-    patientId: patient.id,
-    date: new Date().toISOString().split('T')[0],
-    type: isNew ? 'كشف أول (Initial Sheet)' : 'متابعة شيت دوري',
-    vitals: {
-      bp: document.getElementById('ai-field-bp').value.trim()
-    },
-    history: document.getElementById('ai-field-complaint').value.trim(),
-    examNotes: document.getElementById('ai-field-exam').value.trim(),
-    treatment: document.getElementById('ai-field-ttt').value.trim(),
-    plan: document.getElementById('ai-field-plan').value.trim(),
-    labs: state.extractedData?.labs || {},
-    images: state.pendingImages.map(img => img.data)
+  const newPatient = {
+    id: 'patient_' + Date.now(),
+    code: code,
+    name: name,
+    age: ageEl ? ageEl.value.trim() : '',
+    phone: phoneEl ? phoneEl.value.trim() : '',
+    sex: sexEl ? sexEl.value : 'أنثى',
+    address: addrEl ? addrEl.value.trim() : '',
+    diagnosis: diagEl ? diagEl.value.trim() : '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
-  await window.clinicDB.saveVisit(visit);
-  await loadPatients();
-  await selectPatient(patient.id);
+  await window.clinicDB.savePatient(newPatient);
 
-  closeUploadModal();
-  showToast('تم اعتماد واستخراج الشيت بنجاح وإضافته لملف المريض!', 'success');
+  if (window.clinicSync && typeof window.clinicSync.syncAll === 'function') {
+    window.clinicSync.syncAll().catch(console.warn);
+  }
+
+  const modal = document.getElementById('new-patient-modal');
+  if (modal) modal.classList.add('hidden');
+
+  await loadPatients();
+  await selectPatient(newPatient.id);
+  showToast(`✅ تم إضافة ملف المريض "${name}" بنجاح`, 'success');
+}
+
+// --- Login Overlay & Role Switching Helpers ---
+function prefillLogin(u, p) {
+  const uEl = document.getElementById('login-username');
+  const pEl = document.getElementById('login-password');
+  if (uEl) uEl.value = u;
+  if (pEl) pEl.value = p;
+  const alertEl = document.getElementById('login-error-alert');
+  if (alertEl) alertEl.classList.add('hidden');
+}
+
+function togglePasswordVisibility(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+async function handleLoginSubmit(event) {
+  if (event) event.preventDefault();
+  const uEl = document.getElementById('login-username');
+  const pEl = document.getElementById('login-password');
+  const remEl = document.getElementById('login-remember');
+  const alertEl = document.getElementById('login-error-alert');
+  const textEl = document.getElementById('login-error-text');
+
+  const u = uEl ? uEl.value.trim() : '';
+  const p = pEl ? pEl.value.trim() : '';
+  const remember = remEl ? remEl.checked : true;
+
+  try {
+    if (alertEl) alertEl.classList.add('hidden');
+    await window.clinicAuth.login(u, p, remember);
+  } catch (err) {
+    if (alertEl && textEl) {
+      textEl.textContent = err.message || 'بيانات الدخول غير صحيحة';
+      alertEl.classList.remove('hidden');
+    } else {
+      showToast(err.message, 'error');
+    }
+  }
+}
+
+// --- Doctor & Moderator Account Settings ---
+async function saveDoctorAccountSettings() {
+  const u = document.getElementById('setting-admin-username')?.value.trim();
+  const p = document.getElementById('setting-admin-password')?.value.trim();
+  if (!u || !p) {
+    showToast('يرجى كتابة اسم المستخدم وكلمة المرور للدكتور', 'warning');
+    return;
+  }
+  await window.clinicAuth.saveAdminCredentials(u, p);
+  showToast('✅ تم حفظ وتحديث بيانات حساب الدكتور بنجاح', 'success');
+}
+
+async function saveModeratorAccountSettings() {
+  const u = document.getElementById('setting-mod-username')?.value.trim();
+  const p = document.getElementById('setting-mod-password')?.value.trim();
+  const en = document.getElementById('setting-mod-enabled')?.checked;
+  if (!u || !p) {
+    showToast('يرجى إدخال اسم مستخدم وكلمة مرور السكرتارية', 'warning');
+    return;
+  }
+  await window.clinicAuth.saveModeratorCredentials(u, p, en);
+  showToast('✅ تم حفظ وتحديث إعدادات حساب السكرتارية بنجاح', 'success');
 }
 
 // --- Print E-Prescription / Report Modal ---
@@ -1336,7 +1726,9 @@ function closeLightbox() {
 // --- Settings & Backup ---
 async function openSettingsModal() {
   const currentKey = await window.clinicDB.getSetting('gemini_api_key', '');
-  document.getElementById('setting-gemini-key').value = currentKey;
+  const keyInput = document.getElementById('setting-gemini-key');
+  if (keyInput) keyInput.value = currentKey;
+
   const statusEl = document.getElementById('gemini-key-status');
   if (statusEl) {
     const workingModel = await window.clinicDB.getSetting('gemini_working_model', null);
@@ -1347,7 +1739,31 @@ async function openSettingsModal() {
       statusEl.classList.add('hidden');
     }
   }
+
+  // Populate Doctor and Moderator settings
+  if (window.clinicAuth) {
+    try {
+      const admin = await window.clinicAuth.getAdminCredentials();
+      const mod = await window.clinicAuth.getModeratorCredentials();
+
+      const adminUser = document.getElementById('setting-admin-username');
+      const adminPass = document.getElementById('setting-admin-password');
+      if (adminUser) adminUser.value = admin.username || 'DR';
+      if (adminPass) adminPass.value = admin.password || '123';
+
+      const modUser = document.getElementById('setting-mod-username');
+      const modPass = document.getElementById('setting-mod-password');
+      const modEnabled = document.getElementById('setting-mod-enabled');
+      if (modUser) modUser.value = mod.username || 'secretary';
+      if (modPass) modPass.value = mod.password || '123';
+      if (modEnabled) modEnabled.checked = mod.enabled !== false;
+    } catch (e) {
+      console.warn('Error loading account settings into modal:', e);
+    }
+  }
+
   document.getElementById('settings-modal').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
 
 function closeSettingsModal() {

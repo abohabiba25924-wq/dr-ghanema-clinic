@@ -137,39 +137,43 @@ You are an expert medical transcriptionist and rheumatology consultant assisting
 Analyze the attached handwritten medical examination sheets carefully.
 Decipher the doctor's handwriting, medical abbreviations, and terminology (e.g., RA, SLE, MTX, Prednisolone, ESR, CRP, DXA, ANA, Anti-CCP).
 
+CRITICAL LANGUAGE REQUIREMENT:
+- Patient Name: Keep the exact patient name in Arabic (or English if written in English) as written on the sheet.
+- ALL OTHER CLINICAL & MEDICAL FIELDS (Diagnosis, Chief Complaint, HPI, Past History, Examination, Joint Exam, Lab results, Treatment/Medications, Plan): MUST BE TRANSCRIBED AND WRITTEN IN 100% MEDICAL ENGLISH ONLY. Do NOT output any Arabic words in medical fields under any circumstance. Translate any Arabic clinical notes into professional medical English terminology.
+
 Extract all available fields and output ONLY a valid, single JSON object without markdown code blocks, backticks, or extra text.
 
 The JSON schema must be strictly:
 {
   "code": "Patient File Number or Code from sheet, e.g., 594",
-  "name": "Patient Full Name in Arabic or English",
+  "name": "Patient Full Name in Arabic (or English if written on sheet)",
   "age": "Age as string or number",
-  "date": "Visit date written on sheet, e.g. Sep 14, 26",
+  "date": "Visit date written on sheet, e.g. Sep 14, 2026",
   "phone": "Phone number",
-  "address": "Full address",
-  "diagnosis": "Main diagnosis or impression, e.g. Rheumatoid Arthritis (RA)",
-  "sex": "Female / Male / انثى / ذكر",
+  "address": "Address",
+  "diagnosis": "100% English medical diagnosis, e.g. Rheumatoid Arthritis (RA) - active flare",
+  "sex": "Female or Male",
   "dob": "Date of birth if present",
-  "marital": "Marital status (Married, Single, Divorced, Widow)",
-  "children": "Children info, e.g. 1 Y 6",
-  "occupation": "Occupation, e.g. H.W. (Housewife)",
-  "smoking": "Smoking status (No, Yes, -)",
-  "gpl": "Obstetric history (Gravida, Para, Living, e.g. G1 P1 L1)",
-  "menses": "Menstrual history (Regular / Irregular / R)",
-  "contraception": "Contraceptive method if noted",
-  "allergy": "Drug or food allergies (or None / X)",
-  "operations": "Past surgical operations, e.g. C.S. X 1, fracture, etc.",
-  "familyHistory": "Family history, e.g. Mother RA, Hypothyroidism",
-  "currentTTT": "Current medications before this visit, e.g. steroid 5",
-  "mainComplaint": "Full detailed transcript of the Main Complaint and symptoms text (morning stiffness, dryness, Raynaud's, etc.)",
+  "marital": "Married / Single / Divorced / Widow",
+  "children": "Children info in English, e.g. 1 son, 6 yrs",
+  "occupation": "Occupation in English, e.g. Housewife, Teacher, etc.",
+  "smoking": "Non-smoker / Smoker / Ex-smoker",
+  "gpl": "Obstetric history in English (Gravida, Para, Living, e.g. G1 P1 L1)",
+  "menses": "Menstrual history in English (Regular / Irregular / Menopause)",
+  "contraception": "Contraceptive method if noted in English",
+  "allergy": "Drug or food allergies in English (or None)",
+  "operations": "Past surgical operations in English, e.g. C-Section x 1, Appendectomy",
+  "familyHistory": "Family history in English, e.g. Mother has RA, Hypothyroidism",
+  "currentTTT": "Current medications before this visit in English, e.g. Prednisolone 5mg daily",
+  "mainComplaint": "100% English detailed transcript of the Main Complaint and symptoms (e.g. Morning stiffness > 1 hour, bilateral hand joint pain, fatigue)",
   "vitals": {
-    "weight": "Weight if written",
-    "height": "Height if written",
-    "pulse": "Pulse rate",
-    "temp": "Temperature",
-    "bp": "Blood pressure, e.g. 170/100"
+    "weight": "Weight in kg if written",
+    "height": "Height in cm if written",
+    "pulse": "Pulse rate (bpm)",
+    "temp": "Temperature in °C",
+    "bp": "Blood pressure, e.g. 120/80"
   },
-  "examNotes": "Physical examination and joint findings notes (e.g. Bilat knee crepitus, Lt wrist no flexion, etc.)",
+  "examNotes": "100% English physical examination and joint findings (e.g. Bilateral knee joint crepitus, left wrist synovitis and restricted flexion)",
   "jointAffected": ["array of affected joint keys if mentioned, e.g. wrist_l, knee_r, knee_l, shoulder_r, etc."],
   "labs": {
     "date": "Lab date",
@@ -181,28 +185,28 @@ The JSON schema must be strictly:
     "seg": "",
     "esr": "",
     "crp": "",
-    "alt": "ALT value, e.g. 107/31",
-    "ast": "AST value, e.g. 74/34",
-    "creatinine": "Creatinine value, e.g. 0.83",
+    "alt": "ALT value",
+    "ast": "AST value",
+    "creatinine": "Creatinine value",
     "ca": "",
     "ca_plus": "",
     "tc": "",
-    "ldl": "e.g. INR 1",
+    "ldl": "",
     "hdl": "",
     "tg": "",
-    "uric_acid": "e.g. 7.3",
+    "uric_acid": "",
     "tsh": "",
     "hba1c": "",
     "vit_d": "",
-    "hbsag": "-ve or +ve",
-    "hcv": "-ve or +ve",
-    "hiv": "-ve or +ve",
+    "hbsag": "Negative or Positive",
+    "hcv": "Negative or Positive",
+    "hiv": "Negative or Positive",
     "ana": "ANA result if present",
     "rf": "RF result if present",
     "anti_ccp": "Anti-CCP result if present"
   },
-  "treatment": "Medications and prescriptions prescribed (TTT), e.g. vit E 400 1x1, Essential Forte 1x1, etc.",
-  "plan": "Follow-up instructions or next investigations requested"
+  "treatment": "100% English prescribed medications and prescriptions (TTT), e.g. Methotrexate 15mg weekly, Folic Acid 5mg weekly, Prednisolone 5mg daily",
+  "plan": "100% English follow-up instructions and requested investigations"
 }
 
 If any field is not present or illegible, leave it as an empty string "". Never omit keys. Output ONLY valid JSON.
